@@ -1,0 +1,2 @@
+resources:
+  - ../../manifests/multus/network-attachment-definition.yaml

@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-vip
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-vip
+  namespace: kube-vip
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-vip-role
+rules:
+  - apiGroups: [""]
+    resources: ["services", "endpoints", "nodes"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-vip-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-vip-role
+subjects:
+  - kind: ServiceAccount
+    name: kube-vip
+    namespace: kube-vip
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-vip
+  namespace: kube-vip
+data:
+  vip: "10.0.0.10" # CHANGEME
+  interface: "eth0" # CHANGEME
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kube-vip
+  namespace: kube-vip
+spec:
+  selector:
+    matchLabels:
+      app: kube-vip
+  template:
+    metadata:
+      labels:
+        app: kube-vip
+    spec:
+      serviceAccountName: kube-vip
+      hostNetwork: true
+      containers:
+        - name: kube-vip
+          image: ghcr.io/kube-vip/kube-vip:v0.8.2
+          args:
+            - manager
+          env:
+            - name: vip
+              valueFrom:
+                configMapKeyRef:
+                  name: kube-vip
+                  key: vip
+            - name: vip_interface
+              valueFrom:
+                configMapKeyRef:
+                  name: kube-vip
+                  key: interface
+            - name: cp_enable
+              value: "true"
+            - name: cp_namespace
+              value: kube-system
+            - name: svc_enable
+              value: "false"
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN", "SYS_TIME", "NET_RAW"]

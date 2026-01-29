@@ -1,0 +1,2 @@
+resources:
+  - ../../manifests/kube-vip/kube-vip.yaml

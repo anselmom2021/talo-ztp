@@ -1,0 +1,6 @@
+helm:
+  chart: kubevirt
+  repo: https://kubevirt.github.io/kubevirt-helm
+  version: 0.2.1
+  valuesFiles:
+    - ../../manifests/kubevirt/values.yaml

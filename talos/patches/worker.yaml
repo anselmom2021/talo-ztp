@@ -1,0 +1,11 @@
+machine:
+  network:
+    interfaces:
+      - interface: eth0
+        addresses:
+          - 10.0.0.21/24 # CHANGEME per-node
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 10.0.0.1
+  install:
+    disk: /dev/sda # OS disk

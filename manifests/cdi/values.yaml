@@ -1,0 +1,4 @@
+cdi:
+  config:
+    featureGates:
+      - HonorWaitForFirstConsumer

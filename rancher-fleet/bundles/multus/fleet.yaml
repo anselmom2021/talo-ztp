@@ -1,0 +1,8 @@
+helm:
+  chart: multus
+  repo: https://charts.k8s.io
+  version: 4.1.0
+  valuesFiles:
+    - ../../manifests/multus/values.yaml
+kustomize:
+  dir: .
