@@ -1,3 +1,5 @@
+# talo-ztp
+
 Talos Linux zero-touch provisioning (ZTP) for a 3-node bare-metal AMD64 cluster with day-0 USB deployment and day-1 GitOps using Rancher Fleet. The design minimizes external dependencies by bundling required assets on a USB stick and keeping post-install automation within a GitOps repository.
 
 ## Goals
@@ -90,3 +92,4 @@ Bundled manifests and Helm values are stored under `manifests/` and wrapped with
 
 - This repository is intentionally structured to keep **day-0 automation** in scripts and **day-1 automation** in GitOps manifests. 
 - Replace all `CHANGEME` placeholders before deployment.
+
