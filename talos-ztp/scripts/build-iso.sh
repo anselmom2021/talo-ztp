@@ -83,15 +83,16 @@ imager_image="ghcr.io/siderolabs/imager:${talos_version}"
 docker_args=(
   run --rm -t
   -v "$temp_out":/out
-  -v "$(cd "$(dirname "$machine_config")" && pwd)/$(basename "$machine_config")":/config.yaml:ro
 )
 
-imager_args=(iso --arch "$arch" --config /config.yaml)
+cp "$machine_config" "$temp_out/machine-config.yaml"
+
+imager_args=(iso --arch "$arch")
 
 if [[ -n "$image_cache" ]]; then
   cache_dir="$(cd "$image_cache" && pwd)"
-  docker_args+=(-v "$cache_dir":/image-cache.oci:ro)
-  imager_args+=(--image-cache /image-cache.oci)
+  docker_args+=(-v "$cache_dir":/image-cache:ro)
+  imager_args+=(--image-cache /image-cache)
 fi
 
 docker "${docker_args[@]}" "$imager_image" "${imager_args[@]}"
