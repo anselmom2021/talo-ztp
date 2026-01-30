@@ -72,6 +72,14 @@ if [[ "$confirm" != "ERASE" ]]; then
 fi
 
 sudo dd if="$talos_installer" of="$device" bs=4M status=progress oflag=sync
+sudo partprobe "$device"
+
+fs_type="$(lsblk -no FSTYPE "${device}1" | head -n 1)"
+if [[ -z "$fs_type" ]]; then
+  echo "Unable to detect filesystem type on ${device}1 after imaging." >&2
+  exit 1
+fi
+echo "Detected filesystem type on ${device}1: ${fs_type}"
 
 # Mount the USB to copy configs (assumes partition 1 for staging)
 
