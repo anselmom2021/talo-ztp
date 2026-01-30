@@ -111,28 +111,15 @@ Attach it as a secondary CD-ROM while booting from the Talos installer ISO in yo
 ### Image bundle (`images.tar`)
 
 The optional `images.tar` should include all container images required by your Fleet bundles.
-One simple approach is to maintain a list of images and export them with Docker or nerdctl:
+Use the provided template and helper script to generate it:
 
 ```bash
-cat > images.txt <<'EOF'
-# Example images (replace with your actual chart image list)
-ghcr.io/kube-vip/kube-vip:v0.7.2
-longhornio/longhorn-manager:v1.6.2
-EOF
+cp ./scripts/images.txt.template ./scripts/images.txt
+$EDITOR ./scripts/images.txt
 
-# Using Docker
-while read -r image; do
-  [[ -z "$image" || "$image" =~ ^# ]] && continue
-  docker pull "$image"
-done < images.txt
-docker save -o images.tar $(grep -v '^\s*#' images.txt)
-
-# Using nerdctl (containerd)
-while read -r image; do
-  [[ -z "$image" || "$image" =~ ^# ]] && continue
-  nerdctl pull "$image"
-done < images.txt
-nerdctl save -o images.tar $(grep -v '^\s*#' images.txt)
+./scripts/build-images-bundle.sh \
+  --images-file ./scripts/images.txt \
+  --output ./images.tar
 ```
 
 Place `images.tar` on the USB or seed ISO so it is available during day-0 or air-gapped installs.
