@@ -86,6 +86,10 @@ docker_args=(
 )
 
 cp "$machine_config" "$temp_out/machine-config.yaml"
+if [[ ! -f "$temp_out/machine-config.yaml" ]]; then
+  echo "Failed to stage machine-config.yaml into $temp_out." >&2
+  exit 1
+fi
 
 imager_args=(iso --arch "$arch")
 
@@ -96,6 +100,9 @@ if [[ -n "$image_cache" ]]; then
 fi
 
 docker "${docker_args[@]}" "$imager_image" "${imager_args[@]}"
+
+echo "Imager output directory contents:"
+ls -la "$temp_out"
 
 iso_path="$(ls -t "$temp_out"/*.iso 2>/dev/null | head -n 1 || true)"
 if [[ -z "$iso_path" ]]; then
