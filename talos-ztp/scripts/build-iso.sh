@@ -60,8 +60,8 @@ if [[ ! -f "$machine_config" ]]; then
   exit 1
 fi
 
-if [[ -n "$image_cache" && ! -f "$image_cache" ]]; then
-  echo "Image cache $image_cache not found." >&2
+if [[ -n "$image_cache" && ! -d "$image_cache" ]]; then
+  echo "Image cache $image_cache not found or not a directory." >&2
   exit 1
 fi
 
@@ -89,7 +89,8 @@ docker_args=(
 imager_args=(iso --arch "$arch" --config /config.yaml)
 
 if [[ -n "$image_cache" ]]; then
-  docker_args+=(-v "$(cd "$(dirname "$image_cache")" && pwd)/$(basename "$image_cache")":/image-cache.oci:ro)
+  cache_dir="$(cd "$image_cache" && pwd)"
+  docker_args+=(-v "$cache_dir":/image-cache.oci:ro)
   imager_args+=(--image-cache /image-cache.oci)
 fi
 
