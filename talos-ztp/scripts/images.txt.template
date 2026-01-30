@@ -1,0 +1,6 @@
+# List images required by your Fleet bundles (one per line).
+# Lines starting with # are ignored.
+#
+# Example:
+# ghcr.io/kube-vip/kube-vip:v0.7.2
+# longhornio/longhorn-manager:v1.6.2
