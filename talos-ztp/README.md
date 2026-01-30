@@ -74,6 +74,7 @@ These steps are written for someone new to Talos. You will make a bootable ISO t
    - Use the control plane config to build a control-plane ISO.
    - Use the worker config to build a worker ISO.
    - The ISO already includes the config (and image cache, if you used it).
+   - The script prints the imager output directory contents so you can confirm `machine-config.yaml` and the generated ISO are present.
    - Example:
      ```bash
      ./scripts/build-iso.sh \
