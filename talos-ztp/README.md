@@ -47,34 +47,78 @@ These steps are written for someone new to Talos. You will make a bootable ISO t
 1. **Prepare the configs (one-time setup)**
    - Run the config generator script.
    - It creates the machine configuration files in `./talos/generated/`.
+   - Example:
+     ```bash
+     ./scripts/generate-config.sh \
+       --cluster-name talo-ztp \
+       --vip 10.0.0.10 \
+       --endpoint https://10.0.0.10:6443 \
+       --talos-version v1.12.2 \
+       --k8s-version v1.33.7
+     ```
 
 2. **(Optional) Prepare the image cache for offline installs**
    - Copy the template list and fill in the container images you need.
    - Run the image-cache script to create `image-cache.oci`.
    - This lets the cluster install add-ons without downloading images from the internet.
+   - Example:
+     ```bash
+     cp ./scripts/images.txt.template ./scripts/images.txt
+     $EDITOR ./scripts/images.txt
+     ./scripts/build-images-bundle.sh \
+       --images-file ./scripts/images.txt \
+       --output ./image-cache.oci
+     ```
 
 3. **Build the bootable ISO (per role)**
    - Use the control plane config to build a control-plane ISO.
    - Use the worker config to build a worker ISO.
    - The ISO already includes the config (and image cache, if you used it).
+   - Example:
+     ```bash
+     ./scripts/build-iso.sh \
+       --machine-config ./talos/generated/controlplane.yaml \
+       --image-cache ./image-cache.oci \
+       --output ./talos-controlplane.iso
+
+     ./scripts/build-iso.sh \
+       --machine-config ./talos/generated/worker.yaml \
+       --image-cache ./image-cache.oci \
+       --output ./talos-worker.iso
+     ```
 
 4. **Write the ISO to a USB stick (for bare metal)**
    - Insert a USB stick.
    - Run the USB script to write the ISO to it.
    - This will erase the USB stick.
+   - Example (replace `/dev/sdX` with your USB device):
+     ```bash
+     ./scripts/build-usb.sh \
+       --device /dev/sdX \
+       --talos-installer ./talos-controlplane.iso
+     ```
 
 5. **Boot each machine**
    - Plug the USB into the server.
    - Boot from USB (or attach the ISO to a VM).
    - The machine boots with its config already applied.
+   - Example: select the USB or ISO in your server/VM boot menu.
 
 6. **Install Talos to the system disk**
    - From your workstation, run the install command once the node is up.
    - Repeat for each node.
+   - Example (replace with the node IP and OS disk):
+     ```bash
+     talosctl -n 10.0.0.21 install --insecure --disk /dev/sda
+     ```
 
 7. **Verify the cluster is up**
    - Check that the API VIP responds.
    - Continue with the Day‑1 GitOps flow.
+   - Example:
+     ```bash
+     talosctl -n 10.0.0.10 version
+     ```
 
 See `scripts/build-iso.sh`, `scripts/build-usb.sh`, and `scripts/generate-config.sh` for the automation entry points and `docs/architecture.md` for the full workflow. 
 Embedded configs mean you do not need to run `talosctl apply-config` during day-0.
