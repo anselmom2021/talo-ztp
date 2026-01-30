@@ -1,6 +1,6 @@
 helm:
   chart: cdi
   repo: https://kubevirt.github.io/containerized-data-importer
-  version: 1.60.0
+  version: 1.63.1
   valuesFiles:
     - ../../manifests/cdi/values.yaml

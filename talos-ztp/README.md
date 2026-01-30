@@ -74,8 +74,8 @@ Bundled manifests and Helm values are stored under `manifests/` and wrapped with
   --cluster-name talo-ztp \
   --vip 10.0.0.10 \
   --endpoint https://10.0.0.10:6443 \
-  --talos-version v1.7.6 \
-  --k8s-version v1.30.2
+  --talos-version v1.12.2 \
+  --k8s-version v1.33.7
 
 # 2) Build the USB (ISO + configs + optional image bundle)
 ./scripts/build-usb.sh \
