@@ -85,9 +85,9 @@ docker_args=(
   -v "$temp_out":/out
 )
 
-cp "$machine_config" "$temp_out/machine-config.yaml"
-if [[ ! -f "$temp_out/machine-config.yaml" ]]; then
-  echo "Failed to stage machine-config.yaml into $temp_out." >&2
+cp "$machine_config" "$temp_out/machine.yaml"
+if [[ ! -f "$temp_out/machine.yaml" ]]; then
+  echo "Failed to stage machine.yaml into $temp_out." >&2
   exit 1
 fi
 
