@@ -40,13 +40,41 @@ Talos Linux zero-touch provisioning (ZTP) for a 3-node bare-metal AMD64 cluster 
         └── multus/
 ```
 
-## Day-0 (USB) Flow
+## Day-0 (USB) Flow (Step-by-step, non-technical)
 
-1. Generate Talos machine configs (control plane + workers).
-2. Build a Talos installer ISO that embeds the node config and an optional image cache (for offline use).
-3. Write the ISO to a USB stick (bare metal) or attach it to a VM.
-4. Boot each node from the ISO and install Talos to the OS disk.
-5. Verify the API VIP via kube-vip.
+These steps are written for someone new to Talos. You will make a bootable ISO that already contains the node configuration, so the machine can boot with its config without any extra commands.
+
+1. **Prepare the configs (one-time setup)**
+   - Run the config generator script.
+   - It creates the machine configuration files in `./talos/generated/`.
+
+2. **(Optional) Prepare the image cache for offline installs**
+   - Copy the template list and fill in the container images you need.
+   - Run the image-cache script to create `image-cache.oci`.
+   - This lets the cluster install add-ons without downloading images from the internet.
+
+3. **Build the bootable ISO (per role)**
+   - Use the control plane config to build a control-plane ISO.
+   - Use the worker config to build a worker ISO.
+   - The ISO already includes the config (and image cache, if you used it).
+
+4. **Write the ISO to a USB stick (for bare metal)**
+   - Insert a USB stick.
+   - Run the USB script to write the ISO to it.
+   - This will erase the USB stick.
+
+5. **Boot each machine**
+   - Plug the USB into the server.
+   - Boot from USB (or attach the ISO to a VM).
+   - The machine boots with its config already applied.
+
+6. **Install Talos to the system disk**
+   - From your workstation, run the install command once the node is up.
+   - Repeat for each node.
+
+7. **Verify the cluster is up**
+   - Check that the API VIP responds.
+   - Continue with the Day‑1 GitOps flow.
 
 See `scripts/build-iso.sh`, `scripts/build-usb.sh`, and `scripts/generate-config.sh` for the automation entry points and `docs/architecture.md` for the full workflow. 
 Embedded configs mean you do not need to run `talosctl apply-config` during day-0.
