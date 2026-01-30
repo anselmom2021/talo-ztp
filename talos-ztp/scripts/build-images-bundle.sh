@@ -3,15 +3,16 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: build-images-bundle.sh --images-file ./scripts/images.txt --output ./images.tar [--runtime docker|nerdctl]
+Usage: build-images-bundle.sh --images-file ./scripts/images.txt --output ./image-cache.oci [--platform linux/amd64] [--layer-cache ./layer-cache]
 
-Builds an images.tar bundle by pulling all images listed in the file.
+Builds a Talos image cache (OCI layout) from the list of image references.
 USAGE
 }
 
 images_file=""
-output="images.tar"
-runtime=""
+output="image-cache.oci"
+platform=""
+layer_cache=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -23,8 +24,12 @@ while [[ $# -gt 0 ]]; do
       output="$2"
       shift 2
       ;;
-    --runtime)
-      runtime="$2"
+    --platform)
+      platform="$2"
+      shift 2
+      ;;
+    --layer-cache)
+      layer_cache="$2"
       shift 2
       ;;
     -h|--help)
@@ -50,41 +55,34 @@ if [[ ! -f "$images_file" ]]; then
   exit 1
 fi
 
-if [[ -z "$runtime" ]]; then
-  if command -v docker >/dev/null 2>&1; then
-    runtime="docker"
-  elif command -v nerdctl >/dev/null 2>&1; then
-    runtime="nerdctl"
-  else
-    echo "No supported runtime found (docker or nerdctl)." >&2
-    exit 1
-  fi
+if ! command -v talosctl >/dev/null 2>&1; then
+  echo "talosctl is required but not installed." >&2
+  exit 1
 fi
 
-mapfile -t images < <(grep -v '^\s*#' "$images_file" | awk 'NF{print $0}')
+images=()
+while IFS= read -r line || [[ -n "$line" ]]; do
+  line="${line#"${line%%[![:space:]]*}"}"
+  line="${line%"${line##*[![:space:]]}"}"
+  [[ -z "$line" || "$line" =~ ^# ]] && continue
+  images+=("$line")
+done < "$images_file"
 
 if [[ "${#images[@]}" -eq 0 ]]; then
   echo "No images found in $images_file." >&2
   exit 1
 fi
 
-case "$runtime" in
-  docker)
-    for image in "${images[@]}"; do
-      docker pull "$image"
-    done
-    docker save -o "$output" "${images[@]}"
-    ;;
-  nerdctl)
-    for image in "${images[@]}"; do
-      nerdctl pull "$image"
-    done
-    nerdctl save -o "$output" "${images[@]}"
-    ;;
-  *)
-    echo "Unsupported runtime: $runtime (use docker or nerdctl)." >&2
-    exit 1
-    ;;
-esac
+talosctl_args=(images cache-create --image-cache-path "$output" --images=-)
 
-echo "Image bundle written to $output."
+if [[ -n "$platform" ]]; then
+  talosctl_args+=(--platform "$platform")
+fi
+
+if [[ -n "$layer_cache" ]]; then
+  talosctl_args+=(--image-layer-cache-path "$layer_cache")
+fi
+
+printf "%s\n" "${images[@]}" | talosctl "${talosctl_args[@]}"
+
+echo "Image cache written to $output."

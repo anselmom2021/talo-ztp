@@ -17,15 +17,14 @@
 ## Day-0 Workflow
 
 1. **Generate Talos configs** using `scripts/generate-config.sh`.
-2. **Create bootable USB** with `scripts/build-usb.sh`:
-   - Talos installer ISO or disk image.
-   - Generated machine configs.
-   - Optional image cache bundle.
-3. **Install Talos** on each host:
-   - Boot from USB.
+2. **Build a Talos installer ISO** with embedded config and optional image cache using `scripts/build-iso.sh`.
+3. **Write ISO to USB** with `scripts/build-usb.sh` or attach it to a VM.
+4. **Install Talos** on each host:
+   - Boot from the ISO.
    - Install to OS disk.
-   - Apply Talos configs.
-4. **Bootstrap control-plane** and verify API VIP.
+5. **Bootstrap control-plane** and verify API VIP.
+
+Embedded configs mean no `talosctl apply-config` is required during day-0.
 
 ## Day-1 Workflow (GitOps)
 
@@ -51,4 +50,3 @@ Rancher Fleet monitors `rancher-fleet/` for bundles and applies:
 
 - Talos API and Kubernetes API endpoints are exposed via the internal VIP.
 - Consider using sealed secrets or SOPS for sensitive configuration.
-
