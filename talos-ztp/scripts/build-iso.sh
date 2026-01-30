@@ -112,6 +112,8 @@ if [[ -z "$iso_path" ]]; then
 fi
 
 cp "$iso_path" "$output"
+cp "$machine_config" "$output_dir/machine.yaml"
+cp "$machine_config" "$output_dir/config.yaml"
 
 cat <<NOTICE
 Bootable Talos ISO created at $output.
