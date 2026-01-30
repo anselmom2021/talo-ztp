@@ -46,6 +46,7 @@ Talos Linux zero-touch provisioning (ZTP) for a 3-node bare-metal AMD64 cluster 
    - Talos installer ISO or disk image.
    - Pre-generated Talos machine configuration (control plane + workers).
    - Preloaded container image bundle (optional, for air-gapped or constrained sites).
+   - For local VM testing, you can create a seed ISO instead of a USB stick.
 2. Boot each node from USB and install Talos to the OS disk.
 3. Apply the Talos configs and bootstrap the control plane.
 4. Verify the API VIP via kube-vip.
@@ -81,6 +82,11 @@ Bundled manifests and Helm values are stored under `manifests/` and wrapped with
   --device /dev/sdX \
   --talos-installer talos-amd64.iso \
   --config-dir ./talos/generated
+
+# 3) Build a local seed ISO for VM testing (attach as 2nd CD-ROM)
+./scripts/build-iso.sh \
+  --config-dir ./talos/generated \
+  --output ./talos-seed.iso
 ```
 
 ## Testing & Validation
@@ -88,8 +94,50 @@ Bundled manifests and Helm values are stored under `manifests/` and wrapped with
 - Validate YAML formatting with `yamllint`.
 - Validate Fleet bundles with `fleet apply --dry-run` (if Fleet CLI is available).
 
+## Local VM Testing (Seed ISO)
+
+Use `scripts/build-iso.sh` to generate a small ISO containing `/talos` configs (and optional `images.tar`).
+Attach it as a secondary CD-ROM while booting from the Talos installer ISO in your VM manager.
+
+## Populating Bundles and Image Archives
+
+### Fleet bundles (manifests/Helm)
+
+1. Add or update manifests under `manifests/<package>/` or Helm values files.
+2. Add or update a corresponding bundle under `rancher-fleet/bundles/<package>/`:
+   - `fleet.yaml` points to the Helm chart + version or a local kustomize directory.
+   - Optional `kustomization.yaml` references manifests from `manifests/`.
+
+### Image bundle (`images.tar`)
+
+The optional `images.tar` should include all container images required by your Fleet bundles.
+One simple approach is to maintain a list of images and export them with Docker or nerdctl:
+
+```bash
+cat > images.txt <<'EOF'
+# Example images (replace with your actual chart image list)
+ghcr.io/kube-vip/kube-vip:v0.7.2
+longhornio/longhorn-manager:v1.6.2
+EOF
+
+# Using Docker
+while read -r image; do
+  [[ -z "$image" || "$image" =~ ^# ]] && continue
+  docker pull "$image"
+done < images.txt
+docker save -o images.tar $(grep -v '^\s*#' images.txt)
+
+# Using nerdctl (containerd)
+while read -r image; do
+  [[ -z "$image" || "$image" =~ ^# ]] && continue
+  nerdctl pull "$image"
+done < images.txt
+nerdctl save -o images.tar $(grep -v '^\s*#' images.txt)
+```
+
+Place `images.tar` on the USB or seed ISO so it is available during day-0 or air-gapped installs.
+
 ## Notes
 
 - This repository is intentionally structured to keep **day-0 automation** in scripts and **day-1 automation** in GitOps manifests. 
 - Replace all `CHANGEME` placeholders before deployment.
-
