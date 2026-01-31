@@ -42,7 +42,7 @@ Talos Linux zero-touch provisioning (ZTP) for a 3-node bare-metal AMD64 cluster 
 
 ## Day-0 (USB) Flow (Step-by-step, non-technical)
 
-These steps are written for someone new to Talos. You will make a bootable ISO that already contains the node configuration, so the machine can boot with its config without any extra commands.
+These steps are written for someone new to Talos. You will boot from the Talos installer ISO and attach a small **config ISO** that contains the node configuration. Talos reads the config automatically when you boot with the `talos.config=metal-iso` option. This avoids copying config over the network.
 
 1. **Prepare the configs (one-time setup)**
    - Run the config generator script.
@@ -70,11 +70,10 @@ These steps are written for someone new to Talos. You will make a bootable ISO t
        --output ./image-cache.oci
      ```
 
-3. **Build the bootable ISO (per role)**
+3. **Build the Talos installer ISO (per role)**
    - Use the control plane config to build a control-plane ISO.
    - Use the worker config to build a worker ISO.
-   - The ISO already includes the config (and image cache, if you used it).
-   - The script prints the imager output directory contents so you can confirm `machine-config.yaml` and the generated ISO are present.
+   - This ISO is the bootable Talos installer (no config embedded).
    - Example:
      ```bash
      ./scripts/build-iso.sh \
@@ -88,7 +87,12 @@ These steps are written for someone new to Talos. You will make a bootable ISO t
        --output ./talos-worker.iso
      ```
 
-4. **Write the ISO to a USB stick (for bare metal)**
+4. **Build the config ISO (per role)**
+   - The config ISO is a tiny ISO with a single file: `config.yaml`.
+   - Talos reads this when booted with `talos.config=metal-iso`.
+   - Build one config ISO per role.
+
+5. **Write the installer ISO to a USB stick (for bare metal)**
    - Insert a USB stick.
    - Run the USB script to write the ISO to it.
    - This will erase the USB stick.
@@ -99,13 +103,15 @@ These steps are written for someone new to Talos. You will make a bootable ISO t
        --talos-installer ./talos-controlplane.iso
      ```
 
-5. **Boot each machine**
-   - Plug the USB into the server.
-   - Boot from USB (or attach the ISO to a VM).
-   - The machine boots with its config already applied.
+6. **Boot each machine**
+   - Plug the installer USB into the server (or attach the installer ISO to a VM).
+   - Attach the config ISO as a **second** USB/ISO.
+   - At the boot menu, add: `talos.config=metal-iso`
+   - The machine boots and reads its config from the config ISO.
+   - Example (VM): attach `talos-controlplane.iso` as CD/DVD 1 and `talos-controlplane-config.iso` as CD/DVD 2.
    - Example: select the USB or ISO in your server/VM boot menu.
 
-6. **Install Talos to the system disk**
+7. **Install Talos to the system disk**
    - From your workstation, run the install command once the node is up.
    - Repeat for each node.
    - Example (replace with the node IP and OS disk):
@@ -113,7 +119,7 @@ These steps are written for someone new to Talos. You will make a bootable ISO t
      talosctl -n 10.0.0.21 install --insecure --disk /dev/sda
      ```
 
-7. **Verify the cluster is up**
+8. **Verify the cluster is up**
    - Check that the API VIP responds.
    - Continue with the Day‑1 GitOps flow.
    - Example:
@@ -121,8 +127,8 @@ These steps are written for someone new to Talos. You will make a bootable ISO t
      talosctl -n 10.0.0.10 version
      ```
 
-See `scripts/build-iso.sh`, `scripts/build-usb.sh`, and `scripts/generate-config.sh` for the automation entry points and `docs/architecture.md` for the full workflow. 
-Embedded configs mean you do not need to run `talosctl apply-config` during day-0.
+See `scripts/build-iso.sh`, `scripts/build-config-iso.sh`, `scripts/build-usb.sh`, and `scripts/generate-config.sh` for the automation entry points and `docs/architecture.md` for the full workflow. 
+The config ISO method means you do not need to run `talosctl apply-config` during day-0.
 
 ## Day-1 (GitOps) Flow
 
@@ -155,7 +161,7 @@ $EDITOR ./scripts/images.txt
   --images-file ./scripts/images.txt \
   --output ./image-cache.oci
 
-# 3) Build embedded Talos ISO (per node role)
+# 3) Build Talos installer ISO (per node role)
 ./scripts/build-iso.sh \
   --machine-config ./talos/generated/controlplane.yaml \
   --image-cache ./image-cache.oci \
@@ -167,7 +173,16 @@ $EDITOR ./scripts/images.txt
   --image-cache ./image-cache.oci \
   --output ./talos-worker.iso
 
-# 4) Write ISO to USB (bare metal) or attach to a VM
+# 4) Build config ISO (per node role)
+./scripts/build-config-iso.sh \
+  --machine-config ./talos/generated/controlplane.yaml \
+  --output ./talos-controlplane-config.iso
+
+./scripts/build-config-iso.sh \
+  --machine-config ./talos/generated/worker.yaml \
+  --output ./talos-worker-config.iso
+
+# 5) Write installer ISO to USB (bare metal) or attach to a VM
 ./scripts/build-usb.sh \
   --device /dev/sdX \
   --talos-installer ./talos-controlplane.iso
@@ -180,7 +195,8 @@ $EDITOR ./scripts/images.txt
 
 ## Local VM Testing
 
-Use the embedded Talos ISO generated by `scripts/build-iso.sh` as the VM boot ISO.
+Attach the installer ISO as the boot device and attach the config ISO as a second CD/DVD.
+At the boot menu, add: `talos.config=metal-iso`.
 
 ## Populating Bundles and Image Cache
 
@@ -211,4 +227,4 @@ Pass `--image-cache ./image-cache.oci` to `scripts/build-iso.sh` to embed the ca
 
 - This repository is intentionally structured to keep **day-0 automation** in scripts and **day-1 automation** in GitOps manifests. 
 - Replace all `CHANGEME` placeholders before deployment.
-- `scripts/build-iso.sh` requires Docker (to run the Talos imager) and `scripts/build-images-bundle.sh` requires `talosctl`.
+- `scripts/build-iso.sh` requires Docker (to run the Talos imager), `scripts/build-images-bundle.sh` requires `talosctl`, and `scripts/build-config-iso.sh` requires an ISO creation tool (xorriso/mkisofs/genisoimage/hdiutil).
