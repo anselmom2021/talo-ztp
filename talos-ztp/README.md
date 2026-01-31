@@ -198,6 +198,18 @@ $EDITOR ./scripts/images.txt
 Attach the installer ISO as the boot device and attach the config ISO as a second CD/DVD.
 At the boot menu, add: `talos.config=metal-iso`.
 
+### Adding kernel args in UTM (exact steps)
+
+1. Start the VM and wait for the **systemd-boot** menu to appear.
+2. Use the arrow keys to highlight the default Talos entry.
+3. Press `e` to edit the boot options.
+4. Find the line that starts with `linux` (it contains the kernel parameters).
+5. Append this to the end of that line:
+   ```
+   talos.config=metal-iso
+   ```
+6. Press **Ctrl+X** (or **F10**) to boot with the modified parameters.
+
 ## Populating Bundles and Image Cache
 
 ### Fleet bundles (manifests/Helm)
