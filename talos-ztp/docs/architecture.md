@@ -17,17 +17,14 @@
 ## Day-0 Workflow
 
 1. **Generate Talos configs** using `scripts/generate-config.sh`.
-2. **Build a Talos installer ISO** using `scripts/build-iso.sh`.
-3. **Build a config ISO** using `scripts/build-config-iso.sh` (contains `config.yaml`).
-4. **Write the installer ISO to USB** with `scripts/build-usb.sh` or attach it to a VM.
-5. **Boot with both ISOs attached** and add `talos.config=metal-iso` at the boot menu.
-6. **Install Talos** on each host:
+2. **Build a Talos installer ISO** with embedded config using `scripts/build-iso.sh`.
+3. **Write the installer ISO to USB** with `scripts/build-usb.sh` or attach it to a VM.
+4. **Install Talos** on each host:
    - Boot from the installer ISO.
-   - Talos reads config from the config ISO.
    - Install to OS disk.
-7. **Bootstrap control-plane** and verify API VIP.
+5. **Bootstrap control-plane** and verify API VIP.
 
-The config ISO method means no `talosctl apply-config` is required during day-0.
+Embedded configs mean no `talosctl apply-config` is required during day-0.
 
 ## Day-1 Workflow (GitOps)
 
