@@ -1,0 +1,38 @@
+# Kube-VIP
+ghcr.io/kube-vip/kube-vip:v1.0.1
+
+# Longhorn
+longhornio/longhorn-manager:v1.10.1
+longhornio/longhorn-engine:v1.10.1
+longhornio/longhorn-instance-manager:v1.10.1
+longhornio/longhorn-share-manager:v1.10.1
+longhornio/longhorn-ui:v1.10.1
+
+# KubeVirt
+quay.io/kubevirt/virt-operator:v1.6.0
+quay.io/kubevirt/virt-api:v1.6.0
+quay.io/kubevirt/virt-controller:v1.6.0
+quay.io/kubevirt/virt-handler:v1.6.0
+quay.io/kubevirt/virt-launcher:v1.6.0
+
+# CDI
+quay.io/kubevirt/cdi-operator:v1.63.1
+quay.io/kubevirt/cdi-controller:v1.63.1
+quay.io/kubevirt/cdi-importer:v1.63.1
+quay.io/kubevirt/cdi-uploadserver:v1.63.1
+quay.io/kubevirt/cdi-apiserver:v1.63.1
+quay.io/kubevirt/cdi-cloner:v1.63.1
+
+# Multus
+ghcr.io/k8snetworkplumbingwg/multus-cni:v4.1.0
+
+# Kubernetes core (v1.33.7)
+registry.k8s.io/kube-apiserver:v1.33.7
+registry.k8s.io/kube-controller-manager:v1.33.7
+registry.k8s.io/kube-scheduler:v1.33.7
+registry.k8s.io/kube-proxy:v1.33.7
+
+# TODO: Add the kubeadm default versions for etcd, CoreDNS, and pause
+# registry.k8s.io/etcd:<version>
+# registry.k8s.io/coredns/coredns:<version>
+# registry.k8s.io/pause:<version>
