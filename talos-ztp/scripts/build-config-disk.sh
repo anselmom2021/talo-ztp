@@ -57,7 +57,7 @@ if [[ "$output_dir" != "." ]]; then
 fi
 
 if command -v hdiutil >/dev/null 2>&1; then
-  if ! hdiutil create -size "$size" -fs "MS-DOS" -volname "metal-iso" -ov "$output" >/dev/null; then
+  if ! hdiutil create -size "$size" -fs "MS-DOS" -volname "metal-iso" -ov "$output" -format UDRW >/dev/null; then
     if command -v truncate >/dev/null 2>&1; then
       truncate -s "$size" "$output"
     else
