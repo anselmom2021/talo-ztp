@@ -12,7 +12,7 @@ USAGE
 
 machine_config=""
 output="./talos-config.img"
-size="16M"
+size="64M"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -57,7 +57,7 @@ if [[ "$output_dir" != "." ]]; then
 fi
 
 if command -v hdiutil >/dev/null 2>&1; then
-  if ! hdiutil create -size "$size" -fs FAT32 -volname "metal-iso" -ov "$output" >/dev/null; then
+  if ! hdiutil create -size "$size" -fs "MS-DOS" -volname "metal-iso" -ov "$output" >/dev/null; then
     if command -v truncate >/dev/null 2>&1; then
       truncate -s "$size" "$output"
     else
