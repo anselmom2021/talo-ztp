@@ -71,7 +71,7 @@ if command -v hdiutil >/dev/null 2>&1; then
     diskutil eraseVolume FAT32 metal-iso "$raw_dev" >/dev/null
   fi
 
-  mount_point="$(hdiutil attach -nobrowse "$output" 2>/dev/null | awk '/\\/Volumes\\//{print $3; exit}')"
+  mount_point="$(hdiutil attach -nobrowse "$output" 2>/dev/null | awk '/\/Volumes\//{print $3; exit}')"
   if [[ -z "$mount_point" ]]; then
     echo "Failed to mount disk image." >&2
     exit 1
