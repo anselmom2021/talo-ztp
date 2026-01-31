@@ -57,7 +57,20 @@ if [[ "$output_dir" != "." ]]; then
 fi
 
 if command -v hdiutil >/dev/null 2>&1; then
-  hdiutil create -size "$size" -fs FAT32 -volname "metal-iso" -ov "$output" >/dev/null
+  if ! hdiutil create -size "$size" -fs FAT32 -volname "metal-iso" -ov "$output" >/dev/null; then
+    if command -v truncate >/dev/null 2>&1; then
+      truncate -s "$size" "$output"
+    else
+      dd if=/dev/zero of="$output" bs=1 count=0 seek="$size" >/dev/null 2>&1
+    fi
+    raw_dev="$(hdiutil attach -imagekey diskimage-class=CRawDiskImage -nomount "$output" 2>/dev/null | awk 'NR==1{print $1}')"
+    if [[ -z "$raw_dev" ]]; then
+      echo "Failed to attach raw disk image." >&2
+      exit 1
+    fi
+    diskutil eraseVolume FAT32 metal-iso "$raw_dev" >/dev/null
+  fi
+
   mount_point="$(hdiutil attach -nobrowse "$output" 2>/dev/null | awk '/\\/Volumes\\//{print $3; exit}')"
   if [[ -z "$mount_point" ]]; then
     echo "Failed to mount disk image." >&2
