@@ -19,7 +19,9 @@ Talos Linux zero-touch provisioning (ZTP) for a 3-node bare-metal AMD64 cluster 
 │   └── architecture.md
 ├── scripts/
 │   ├── build-usb.sh
-│   └── generate-config.sh
+│   ├── generate-config.sh
+│   ├── images.txt
+│   └── images.txt.template
 ├── talos/
 │   └── patches/
 │       ├── controlplane.yaml
@@ -45,29 +47,33 @@ Talos Linux zero-touch provisioning (ZTP) for a 3-node bare-metal AMD64 cluster 
 These steps are written for someone new to Talos. You will make a bootable ISO that already contains the node configuration, so the machine can boot with its config without any extra commands.
 
 1. **Prepare the configs (one-time setup)**
-   - Run the config generator script.
+   - Generate Talos configs using `talosctl`, then apply your patch files.
    - It creates the machine configuration files in `./talos/generated/`.
    - Example:
      ```bash
-     ./scripts/generate-config.sh \
-       --cluster-name talo-ztp \
-       --vip 10.0.0.10 \
-       --endpoint https://10.0.0.10:6443 \
-       --talos-version v1.12.2 \
-       --k8s-version v1.33.7
+     talosctl gen config talo-ztp https://10.0.0.10:6443 -f --with-docs=false
+     mkdir -p ./talos/generated
+     mv controlplane.yaml worker.yaml talosconfig ./talos/generated/
+     talosctl machineconfig patch ./talos/generated/controlplane.yaml \
+       --patch @./talos/patches/machine.yaml \
+       --patch @./talos/patches/controlplane.yaml \
+       > ./talos/generated/controlplane.patched.yaml
+     talosctl machineconfig patch ./talos/generated/worker.yaml \
+       --patch @./talos/patches/machine.yaml \
+       --patch @./talos/patches/worker.yaml \
+       > ./talos/generated/worker.patched.yaml
+     mv ./talos/generated/controlplane.patched.yaml ./talos/generated/controlplane.yaml
+     mv ./talos/generated/worker.patched.yaml ./talos/generated/worker.yaml
      ```
 
 2. **(Optional) Prepare the image cache for offline installs**
    - Copy the template list and fill in the container images you need.
-   - Run the image-cache script to create `image-cache.oci`.
+   - Run `talosctl images cache-create` to create `image-cache.oci`.
    - This lets the cluster install add-ons without downloading images from the internet.
    - Example:
      ```bash
      cp ./scripts/images.txt.template ./scripts/images.txt
-     $EDITOR ./scripts/images.txt
-     ./scripts/build-images-bundle.sh \
-       --images-file ./scripts/images.txt \
-       --output ./image-cache.oci
+     cat ./scripts/images.txt | talosctl images cache-create --image-cache-path ./bundles/image-cache.oci --images=-
      ```
 
 3. **Build the bootable ISO (per role)**
@@ -76,15 +82,22 @@ These steps are written for someone new to Talos. You will make a bootable ISO t
    - The ISO already includes the config (and image cache, if you used it).
    - Example:
      ```bash
-     ./scripts/build-iso.sh \
-       --machine-config ./talos/generated/controlplane.yaml \
-       --image-cache ./image-cache.oci \
-       --output ./talos-controlplane.iso
+     mkdir -p ./_out
+     cp ./talos/generated/controlplane.yaml ./_out/machine.yaml
+     docker run --rm -t \
+       -v "$PWD/_out":/out \
+       -v "$PWD/bundles/image-cache.oci":/image-cache.oci:ro \
+       ghcr.io/siderolabs/imager:v1.12.2 \
+       iso --arch amd64 --image-cache /image-cache.oci
+     mv ./_out/*.iso ./talos-controlplane.iso
 
-     ./scripts/build-iso.sh \
-       --machine-config ./talos/generated/worker.yaml \
-       --image-cache ./image-cache.oci \
-       --output ./talos-worker.iso
+     cp ./talos/generated/worker.yaml ./_out/machine.yaml
+     docker run --rm -t \
+       -v "$PWD/_out":/out \
+       -v "$PWD/bundles/image-cache.oci":/image-cache.oci:ro \
+       ghcr.io/siderolabs/imager:v1.12.2 \
+       iso --arch amd64 --image-cache /image-cache.oci
+     mv ./_out/*.iso ./talos-worker.iso
      ```
 
 4. **Write the installer ISO to a USB stick (for bare metal)**
@@ -119,7 +132,7 @@ These steps are written for someone new to Talos. You will make a bootable ISO t
      talosctl -n 10.0.0.10 version
      ```
 
-See `scripts/build-iso.sh`, `scripts/build-usb.sh`, and `scripts/generate-config.sh` for the automation entry points and `docs/architecture.md` for the full workflow. 
+See `scripts/build-usb.sh` and `docs/architecture.md` for the full workflow. 
 Embedded configs mean you do not need to run `talosctl apply-config` during day-0.
 
 ## Day-1 (GitOps) Flow
@@ -139,21 +152,33 @@ Bundled manifests and Helm values are stored under `manifests/` and wrapped with
 
 ```bash
 # 1) Generate Talos configs (control-plane + worker)
-talosctl gen config talos-ztp https://192.168.64.51:6443 -f --with-docs=false
-
-./scripts/generate-config.sh \
-  --cluster-name talo-ztp \
-  --vip 10.0.0.10 \
-  --endpoint https://10.0.0.10:6443 \
-  --talos-version v1.12.2 \
-  --k8s-version v1.33.7
+talosctl gen config talo-ztp https://10.0.0.10:6443 -f --with-docs=false
+mkdir -p ./talos/generated
+mv controlplane.yaml worker.yaml talosconfig ./talos/generated/
+talosctl machineconfig patch ./talos/generated/controlplane.yaml \
+  --patch @./talos/patches/machine.yaml \
+  --patch @./talos/patches/controlplane.yaml \
+  > ./talos/generated/controlplane.patched.yaml
+talosctl machineconfig patch ./talos/generated/worker.yaml \
+  --patch @./talos/patches/machine.yaml \
+  --patch @./talos/patches/worker.yaml \
+  > ./talos/generated/worker.patched.yaml
+mv ./talos/generated/controlplane.patched.yaml ./talos/generated/controlplane.yaml
+mv ./talos/generated/worker.patched.yaml ./talos/generated/worker.yaml
 
 # 2) Build image cache (optional, for offline/air-gapped)
 cp ./scripts/images.txt.template ./scripts/images.txt
 cat ./scripts/images.txt | talosctl images cache-create --image-cache-path ./bundles/image-cache.oci --images=-
 
 # 3) Build embedded Talos ISO (per node role)
-docker run --rm -t -v $PWD/_out:/secureboot:ro -v $PWD/_out:/out -v $PWD/bundles/image-cache.oci:/image-cache.oci:ro -v /dev:/dev --privileged ghcr.io/siderolabs/imager:v1.12.2 iso --arch amd64 --image-cache /image-cache.oci
+mkdir -p ./_out
+cp ./talos/generated/controlplane.yaml ./_out/machine.yaml
+docker run --rm -t \
+  -v "$PWD/_out":/out \
+  -v "$PWD/bundles/image-cache.oci":/image-cache.oci:ro \
+  ghcr.io/siderolabs/imager:v1.12.2 \
+  iso --arch amd64 --image-cache /image-cache.oci
+mv ./_out/*.iso ./talos-controlplane.iso
 
 
 # 4) Write ISO to USB (bare metal) or attach to a VM
@@ -169,11 +194,7 @@ docker run --rm -t -v $PWD/_out:/secureboot:ro -v $PWD/_out:/out -v $PWD/bundles
 
 ## Local VM Testing
 
-Use the embedded Talos ISO generated by `scripts/build-iso.sh` as the VM boot ISO.
-talosctl apply -f controlplane.yaml -n <node ip> -p '@machine_patch.yaml' -p '@controlplane_patch.yaml' -i
-talosctl config endpoint <node ip>
-talosctl config node <node ip>
-talosctl bootstrap
+Use the embedded Talos ISO generated above as the VM boot ISO.
 
 ## Populating Bundles and Image Cache
 
@@ -187,21 +208,19 @@ talosctl bootstrap
 ### Image cache (`image-cache.oci`)
 
 The optional `image-cache.oci` is an OCI *directory* (not a single file) that includes all container images required by your Fleet bundles.
-Use the provided template and helper script to generate it:
+Use the provided template and `talosctl` to generate it:
 
 ```bash
 cp ./scripts/images.txt.template ./scripts/images.txt
 $EDITOR ./scripts/images.txt
 
-./scripts/build-images-bundle.sh \
-  --images-file ./scripts/images.txt \
-  --output ./image-cache.oci
+cat ./scripts/images.txt | talosctl images cache-create --image-cache-path ./bundles/image-cache.oci --images=-
 ```
 
-Pass `--image-cache ./image-cache.oci` to `scripts/build-iso.sh` to embed the cache in the boot ISO.
+Pass `--image-cache /image-cache.oci` to the imager command to embed the cache in the boot ISO.
 
 ## Notes
 
 - This repository is intentionally structured to keep **day-0 automation** in scripts and **day-1 automation** in GitOps manifests. 
 - Replace all `CHANGEME` placeholders before deployment.
-- `scripts/build-iso.sh` requires Docker (to run the Talos imager) and `scripts/build-images-bundle.sh` requires `talosctl`.
+- Building ISOs requires Docker (to run the Talos imager) and building the image cache requires `talosctl`.

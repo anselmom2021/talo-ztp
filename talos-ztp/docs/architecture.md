@@ -17,7 +17,7 @@
 ## Day-0 Workflow
 
 1. **Generate Talos configs** using `scripts/generate-config.sh`.
-2. **Build a Talos installer ISO** with embedded config using `scripts/build-iso.sh`.
+2. **Build a Talos installer ISO** with embedded config using the Talos imager.
 3. **Write the installer ISO to USB** with `scripts/build-usb.sh` or attach it to a VM.
 4. **Install Talos** on each host:
    - Boot from the installer ISO.
