@@ -152,8 +152,7 @@ Bundled manifests and Helm values are stored under `manifests/` and wrapped with
 
 ```bash
 # 1) Generate Talos configs (control-plane + worker)
-talosctl gen config talo-ztp https://10.0.0.10:6443 -f --with-docs=false
-mkdir -p ./talos/generated
+talosctl gen config talo-ztp https://<vip or node ip>:6443 -f --with-docs=false
 mv controlplane.yaml worker.yaml talosconfig ./talos/generated/
 talosctl machineconfig patch ./talos/generated/controlplane.yaml \
   --patch @./talos/patches/machine.yaml \
