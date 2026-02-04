@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Talos Fleet Approval Console</title>
+    <link rel="stylesheet" href="/public/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Talos Fleet Console</p>
+          <h1>Approval‑first installs for your Talos fleet</h1>
+          <p class="sub">
+            Track nodes, approve installs, and document their status. This UI
+            does not touch your cluster directly — it provides a human‑in‑the‑loop
+            workflow.
+          </p>
+        </div>
+        <div class="status-card">
+          <h2>At a Glance</h2>
+          <div class="status-grid">
+            <div>
+              <span class="label">Pending</span>
+              <span id="count-pending" class="value">0</span>
+            </div>
+            <div>
+              <span class="label">Approved</span>
+              <span id="count-approved" class="value">0</span>
+            </div>
+            <div>
+              <span class="label">Installing</span>
+              <span id="count-installing" class="value">0</span>
+            </div>
+            <div>
+              <span class="label">Installed</span>
+              <span id="count-installed" class="value">0</span>
+            </div>
+            <div>
+              <span class="label">Configured</span>
+              <span id="count-configured" class="value">0</span>
+            </div>
+            <div>
+              <span class="label">Verified</span>
+              <span id="count-verified" class="value">0</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="grid">
+        <section class="panel">
+          <h2>Register a Node</h2>
+          <form id="node-form">
+            <label>
+              Name
+              <input name="name" placeholder="edge-01" required />
+            </label>
+            <label>
+              IP Address
+              <input name="ip" placeholder="10.0.0.21" required />
+            </label>
+            <label>
+              Role
+              <select name="role" required>
+                <option value="controlplane">controlplane</option>
+                <option value="worker">worker</option>
+              </select>
+            </label>
+            <label>
+              Machine patch path (optional)
+              <input name="machinePatchPath" placeholder="./talos/patches/machine.yaml" />
+            </label>
+            <label>
+              Controlplane patch path (optional)
+              <input name="controlplanePatchPath" placeholder="./talos/patches/controlplane.yaml" />
+            </label>
+            <label>
+              Cluster YAML changes (optional)
+              <textarea name="clusterPatchYaml" rows="4" placeholder="YAML snippet to merge at cluster scope"></textarea>
+            </label>
+            <button type="submit">Add Node</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <h2>Discover Nodes</h2>
+          <form id="discover-form">
+            <label>
+              Networks (CIDR, comma‑separated)
+              <input name="networks" placeholder="192.168.1.0/24,10.0.0.0/24" required />
+            </label>
+            <label>
+              Default role
+              <select name="role">
+                <option value="controlplane">controlplane</option>
+                <option value="worker" selected>worker</option>
+              </select>
+            </label>
+            <label>
+              Machine patch path (optional)
+              <input name="machinePatchPath" placeholder="./talos/patches/machine.yaml" />
+            </label>
+            <label>
+              Controlplane patch path (optional)
+              <input name="controlplanePatchPath" placeholder="./talos/patches/controlplane.yaml" />
+            </label>
+            <label>
+              Cluster YAML changes (optional)
+              <textarea name="clusterPatchYaml" rows="4" placeholder="YAML snippet to merge at cluster scope"></textarea>
+            </label>
+            <button type="submit">Discover Nodes</button>
+            <p class="hint">Requires nmap + talosctl on the server host.</p>
+          </form>
+        </section>
+      </section>
+
+      <section class="panel full">
+        <h2>Pending Approvals</h2>
+        <div id="approvals" class="list"></div>
+      </section>
+      <section class="panel full">
+        <h2>Fleet Status</h2>
+        <div id="nodes" class="list"></div>
+      </section>
+    </main>
+
+    <script src="/public/app.js"></script>
+  </body>
+</html>

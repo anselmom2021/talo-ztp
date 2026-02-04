@@ -1,0 +1,366 @@
+import http from "http";
+import { readFile, writeFile, mkdir, mkdtemp, rm } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { spawn } from "child_process";
+import os from "os";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const DATA_DIR = path.join(__dirname, "data");
+const DB_PATH = path.join(DATA_DIR, "db.json");
+const PUBLIC_DIR = path.join(__dirname, "public");
+const CONFIG_DIR = process.env.CONFIG_DIR || path.join(__dirname, "..", "talos", "generated");
+const TALOSCONFIG = process.env.TALOSCONFIG || "";
+const TALOS_INSECURE = process.env.TALOS_INSECURE === "true";
+
+const defaultDb = {
+  nodes: [],
+  approvals: []
+};
+
+async function ensureDb() {
+  if (!existsSync(DATA_DIR)) {
+    await mkdir(DATA_DIR, { recursive: true });
+  }
+  if (!existsSync(DB_PATH)) {
+    await writeFile(DB_PATH, JSON.stringify(defaultDb, null, 2));
+  }
+}
+
+async function loadDb() {
+  await ensureDb();
+  const raw = await readFile(DB_PATH, "utf8");
+  return JSON.parse(raw);
+}
+
+async function saveDb(db) {
+  await writeFile(DB_PATH, JSON.stringify(db, null, 2));
+}
+
+function json(res, status, payload) {
+  const body = JSON.stringify(payload);
+  res.writeHead(status, {
+    "Content-Type": "application/json",
+    "Content-Length": Buffer.byteLength(body)
+  });
+  res.end(body);
+}
+
+function notFound(res) {
+  res.writeHead(404, { "Content-Type": "text/plain" });
+  res.end("Not Found");
+}
+
+function badRequest(res, message) {
+  res.writeHead(400, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ error: message }));
+}
+
+function parseBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", (chunk) => (data += chunk));
+    req.on("end", () => {
+      if (!data) return resolve({});
+      try {
+        resolve(JSON.parse(data));
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
+}
+
+function serveFile(res, filePath) {
+  readFile(filePath)
+    .then((buf) => {
+      const ext = path.extname(filePath);
+      const type =
+        ext === ".html"
+          ? "text/html"
+          : ext === ".css"
+          ? "text/css"
+          : ext === ".js"
+          ? "text/javascript"
+          : "application/octet-stream";
+      res.writeHead(200, { "Content-Type": type });
+      res.end(buf);
+    })
+    .catch(() => notFound(res));
+}
+
+function newId() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function runCommand(cmd, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => (stdout += d.toString()));
+    child.stderr.on("data", (d) => (stderr += d.toString()));
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        return reject(new Error(stderr.trim() || `${cmd} exited with ${code}`));
+      }
+      resolve(stdout);
+    });
+  });
+}
+
+function talosctlArgs(baseArgs) {
+  const args = [];
+  if (TALOSCONFIG) {
+    args.push(`--talosconfig=${TALOSCONFIG}`);
+  }
+  if (TALOS_INSECURE) {
+    args.push("--insecure");
+  }
+  return args.concat(baseArgs);
+}
+
+async function discoverNodes(networks) {
+  const nmapOut = await runCommand("nmap", ["-Pn", "-n", "-p", "50000", ...networks]);
+  const candidates = [];
+  nmapOut.split("\n").forEach((line) => {
+    const match = line.match(/Discovered open port .* on ([0-9.]+)/);
+    if (match) candidates.push(match[1]);
+  });
+  return [...new Set(candidates)];
+}
+
+async function getHostname(ip) {
+  try {
+    const out = await runCommand("talosctl", talosctlArgs([
+      "-e",
+      ip,
+      "-n",
+      ip,
+      "get",
+      "hostname",
+      "-o",
+      "jsonpath={.spec.hostname}"
+    ]));
+    return out.trim();
+  } catch {
+    return "";
+  }
+}
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const { pathname } = url;
+
+  if (req.method === "GET" && pathname === "/") {
+    return serveFile(res, path.join(PUBLIC_DIR, "index.html"));
+  }
+  if (req.method === "GET" && pathname.startsWith("/public/")) {
+    return serveFile(res, path.join(__dirname, pathname));
+  }
+  if (req.method === "GET" && pathname === "/api/nodes") {
+    const db = await loadDb();
+    return json(res, 200, db.nodes);
+  }
+  if (req.method === "GET" && pathname === "/api/approvals") {
+    const db = await loadDb();
+    return json(res, 200, db.approvals);
+  }
+  if (req.method === "POST" && pathname === "/api/nodes") {
+    try {
+      const body = await parseBody(req);
+      if (!body.name || !body.ip || !body.role) {
+        return badRequest(res, "name, ip, and role are required");
+      }
+      const db = await loadDb();
+      const node = {
+        id: newId(),
+        name: body.name,
+        ip: body.ip,
+        role: body.role,
+        machinePatchPath: body.machinePatchPath || "",
+        controlplanePatchPath: body.controlplanePatchPath || "",
+        clusterPatchYaml: body.clusterPatchYaml || "",
+        status: "pending",
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+      };
+      db.nodes.push(node);
+      db.approvals.push({
+        id: newId(),
+        nodeId: node.id,
+        action: "install",
+        status: "pending",
+        createdAt: nowIso()
+      });
+      await saveDb(db);
+      return json(res, 201, node);
+    } catch {
+      return badRequest(res, "invalid JSON body");
+    }
+  }
+
+  if (req.method === "POST" && pathname === "/api/discover") {
+    try {
+      const body = await parseBody(req);
+      const networks = (body.networks || "")
+        .split(",")
+        .map((n) => n.trim())
+        .filter(Boolean);
+      if (networks.length === 0) {
+        return badRequest(res, "networks is required (comma-separated CIDRs)");
+      }
+      const role = body.role || "worker";
+      const machinePatchPath = body.machinePatchPath || "";
+      const controlplanePatchPath = body.controlplanePatchPath || "";
+      const clusterPatchYaml = body.clusterPatchYaml || "";
+      let candidates;
+      try {
+        candidates = await discoverNodes(networks);
+      } catch (err) {
+        return badRequest(res, `discovery failed: ${err.message}`);
+      }
+
+      const db = await loadDb();
+      const existingIps = new Set(db.nodes.map((n) => n.ip));
+      const added = [];
+      for (const ip of candidates) {
+        if (existingIps.has(ip)) continue;
+        const hostname = await getHostname(ip);
+        const node = {
+          id: newId(),
+          name: hostname || ip,
+          ip,
+          role,
+          machinePatchPath,
+          controlplanePatchPath,
+          clusterPatchYaml,
+          status: "pending",
+          createdAt: nowIso(),
+          updatedAt: nowIso()
+        };
+        db.nodes.push(node);
+        db.approvals.push({
+          id: newId(),
+          nodeId: node.id,
+          action: "install",
+          status: "pending",
+          createdAt: nowIso()
+        });
+        added.push(node);
+      }
+      await saveDb(db);
+      return json(res, 200, { added, totalFound: candidates.length });
+    } catch {
+      return badRequest(res, "invalid JSON body");
+    }
+  }
+
+  const nodeApplyMatch = pathname.match(/^\/api\/nodes\/([^/]+)\/apply$/);
+  if (req.method === "POST" && nodeApplyMatch) {
+    const [, nodeId] = nodeApplyMatch;
+    const db = await loadDb();
+    const node = db.nodes.find((n) => n.id === nodeId);
+    if (!node) return notFound(res);
+    const baseConfig = path.join(CONFIG_DIR, `${node.role}.yaml`);
+    if (!existsSync(baseConfig)) {
+      return badRequest(res, `base config not found: ${baseConfig}`);
+    }
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "talos-web-"));
+    try {
+      const inlinePatchPath = path.join(tempDir, "cluster-patch.yaml");
+      const patchedConfigPath = path.join(tempDir, "patched.yaml");
+      const patchArgs = [];
+      if (node.machinePatchPath) patchArgs.push("--patch", `@${node.machinePatchPath}`);
+      if (node.controlplanePatchPath) patchArgs.push("--patch", `@${node.controlplanePatchPath}`);
+      if (node.clusterPatchYaml) {
+        await writeFile(inlinePatchPath, node.clusterPatchYaml, "utf8");
+        patchArgs.push("--patch", `@${inlinePatchPath}`);
+      }
+
+      const patchCmd = talosctlArgs([
+        "machineconfig",
+        "patch",
+        baseConfig,
+        ...patchArgs
+      ]);
+      const patchedYaml = await runCommand("talosctl", patchCmd);
+      await writeFile(patchedConfigPath, patchedYaml, "utf8");
+
+      await runCommand(
+        "talosctl",
+        talosctlArgs(["apply-config", "-n", node.ip, "-f", patchedConfigPath])
+      );
+
+      node.status = "configured";
+      node.lastAppliedAt = nowIso();
+      node.updatedAt = nowIso();
+      await saveDb(db);
+      return json(res, 200, node);
+    } catch (err) {
+      return badRequest(res, `apply failed: ${err.message}`);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  }
+
+  const nodeVerifyMatch = pathname.match(/^\/api\/nodes\/([^/]+)\/verify$/);
+  if (req.method === "POST" && nodeVerifyMatch) {
+    const [, nodeId] = nodeVerifyMatch;
+    const db = await loadDb();
+    const node = db.nodes.find((n) => n.id === nodeId);
+    if (!node) return notFound(res);
+    try {
+      await runCommand("talosctl", talosctlArgs(["-n", node.ip, "get", "machineconfig"]));
+      node.lastVerifiedAt = nowIso();
+      node.status = node.status === "configured" ? "verified" : node.status;
+      node.updatedAt = nowIso();
+      await saveDb(db);
+      return json(res, 200, node);
+    } catch (err) {
+      return badRequest(res, `verify failed: ${err.message}`);
+    }
+  }
+
+  const nodeActionMatch = pathname.match(/^\/api\/nodes\/([^/]+)\/(approve|reject|install|complete)$/);
+  if (req.method === "POST" && nodeActionMatch) {
+    const [, nodeId, action] = nodeActionMatch;
+    const db = await loadDb();
+    const node = db.nodes.find((n) => n.id === nodeId);
+    if (!node) return notFound(res);
+
+    if (action === "approve") {
+      node.status = "approved";
+      db.approvals = db.approvals.map((a) =>
+        a.nodeId === nodeId && a.status === "pending" ? { ...a, status: "approved" } : a
+      );
+    } else if (action === "reject") {
+      node.status = "rejected";
+      db.approvals = db.approvals.map((a) =>
+        a.nodeId === nodeId && a.status === "pending" ? { ...a, status: "rejected" } : a
+      );
+    } else if (action === "install") {
+      node.status = "installing";
+    } else if (action === "complete") {
+      node.status = "installed";
+    }
+    node.updatedAt = nowIso();
+    await saveDb(db);
+    return json(res, 200, node);
+  }
+
+  notFound(res);
+});
+
+const port = process.env.PORT || 4173;
+server.listen(port, () => {
+  console.log(`talos-fleet-web listening on http://localhost:${port}`);
+});
