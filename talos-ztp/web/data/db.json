@@ -1,25 +1,4 @@
 {
-  "nodes": [
-    {
-      "id": "y7d6ng2h",
-      "name": "talos1",
-      "ip": "192.168.64.53",
-      "role": "controlplane",
-      "machinePatchPath": "",
-      "controlplanePatchPath": "",
-      "clusterPatchYaml": "",
-      "status": "installed",
-      "createdAt": "2026-02-04T18:26:56.066Z",
-      "updatedAt": "2026-02-04T18:27:38.861Z"
-    }
-  ],
-  "approvals": [
-    {
-      "id": "d912dlgp",
-      "nodeId": "y7d6ng2h",
-      "action": "install",
-      "status": "approved",
-      "createdAt": "2026-02-04T18:26:56.066Z"
-    }
-  ]
+  "nodes": [],
+  "approvals": []
 }

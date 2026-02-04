@@ -138,11 +138,15 @@ function talosctlArgs(baseArgs) {
 
 async function discoverNodes(networks) {
   await ensureCommand("nmap");
-  const nmapOut = await runCommand("nmap", ["-Pn", "-n", "-p", "50000", ...networks]);
+  const nmapOut = await runCommand("nmap", ["-Pn", "-n", "-p", "50000", "-oG", "-", ...networks]);
   const candidates = [];
   nmapOut.split("\n").forEach((line) => {
-    const match = line.match(/Discovered open port .* on ([0-9.]+)/);
-    if (match) candidates.push(match[1]);
+    if (!line.startsWith("Host:")) return;
+    const hostMatch = line.match(/Host:\s+([0-9.]+)/);
+    const portMatch = line.match(/Ports:\s+.*50000\/open/);
+    if (hostMatch && portMatch) {
+      candidates.push(hostMatch[1]);
+    }
   });
   return [...new Set(candidates)];
 }
