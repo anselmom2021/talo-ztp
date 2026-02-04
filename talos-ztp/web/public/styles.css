@@ -201,6 +201,13 @@ pre {
   flex-wrap: wrap;
 }
 
+.details-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
 .ghost {
   background: transparent;
   border: 1px solid var(--border);

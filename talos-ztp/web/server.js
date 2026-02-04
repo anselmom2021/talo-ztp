@@ -100,6 +100,14 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+async function ensureCommand(cmd) {
+  try {
+    await runCommand("command", ["-v", cmd]);
+  } catch {
+    throw new Error(`${cmd} not found in PATH`);
+  }
+}
+
 function runCommand(cmd, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -129,6 +137,7 @@ function talosctlArgs(baseArgs) {
 }
 
 async function discoverNodes(networks) {
+  await ensureCommand("nmap");
   const nmapOut = await runCommand("nmap", ["-Pn", "-n", "-p", "50000", ...networks]);
   const candidates = [];
   nmapOut.split("\n").forEach((line) => {
@@ -140,6 +149,7 @@ async function discoverNodes(networks) {
 
 async function getHostname(ip) {
   try {
+    await ensureCommand("talosctl");
     const out = await runCommand("talosctl", talosctlArgs([
       "-e",
       ip,
@@ -224,6 +234,7 @@ const server = http.createServer(async (req, res) => {
       const clusterPatchYaml = body.clusterPatchYaml || "";
       let candidates;
       try {
+        await ensureCommand("talosctl");
         candidates = await discoverNodes(networks);
       } catch (err) {
         return badRequest(res, `discovery failed: ${err.message}`);
@@ -261,6 +272,58 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { added, totalFound: candidates.length });
     } catch {
       return badRequest(res, "invalid JSON body");
+    }
+  }
+
+  const nodeDisksMatch = pathname.match(/^\/api\/nodes\/([^/]+)\/disks$/);
+  if (req.method === "GET" && nodeDisksMatch) {
+    const [, nodeId] = nodeDisksMatch;
+    const db = await loadDb();
+    const node = db.nodes.find((n) => n.id === nodeId);
+    if (!node) return notFound(res);
+    try {
+      const out = await runCommand(
+        "talosctl",
+        talosctlArgs(["-n", node.ip, "get", "disks"])
+      );
+      return json(res, 200, { output: out });
+    } catch (err) {
+      return badRequest(res, `disks failed: ${err.message}`);
+    }
+  }
+
+  const nodeServicesMatch = pathname.match(/^\/api\/nodes\/([^/]+)\/services$/);
+  if (req.method === "GET" && nodeServicesMatch) {
+    const [, nodeId] = nodeServicesMatch;
+    const db = await loadDb();
+    const node = db.nodes.find((n) => n.id === nodeId);
+    if (!node) return notFound(res);
+    try {
+      const out = await runCommand(
+        "talosctl",
+        talosctlArgs(["-n", node.ip, "service"])
+      );
+      return json(res, 200, { output: out });
+    } catch (err) {
+      return badRequest(res, `services failed: ${err.message}`);
+    }
+  }
+
+  const nodeLogsMatch = pathname.match(/^\/api\/nodes\/([^/]+)\/logs$/);
+  if (req.method === "GET" && nodeLogsMatch) {
+    const [, nodeId] = nodeLogsMatch;
+    const db = await loadDb();
+    const node = db.nodes.find((n) => n.id === nodeId);
+    if (!node) return notFound(res);
+    const service = url.searchParams.get("service") || "machined";
+    try {
+      const out = await runCommand(
+        "talosctl",
+        talosctlArgs(["-n", node.ip, "logs", service, "--tail", "200"])
+      );
+      return json(res, 200, { output: out });
+    } catch (err) {
+      return badRequest(res, `logs failed: ${err.message}`);
     }
   }
 

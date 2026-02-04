@@ -17,6 +17,7 @@ Open `http://localhost:4173`.
 - Discover nodes on your network and pre-register them for approval
 - Capture optional patch file paths and cluster YAML overrides per node
 - Apply configs via server-side `talosctl` and verify applied state
+- View node details (disks, services, logs)
 - Approval queue (approve/reject)
 - Status tracking (pending → approved → installing → installed)
 - Single-file JSON storage for easy backup
@@ -53,6 +54,9 @@ PORT=8080 node server.js
 - `POST /api/nodes/:id/verify` (checks `talosctl get machineconfig`)
 - `POST /api/nodes/:id/install`
 - `POST /api/nodes/:id/complete`
+- `GET /api/nodes/:id/disks`
+- `GET /api/nodes/:id/services`
+- `GET /api/nodes/:id/logs?service=machined`
 
 ## Notes
 

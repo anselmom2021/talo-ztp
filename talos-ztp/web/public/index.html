@@ -112,6 +112,7 @@
             </label>
             <button type="submit">Discover Nodes</button>
             <p class="hint">Requires nmap + talosctl on the server host.</p>
+            <p id="discover-status" class="hint"></p>
           </form>
         </section>
       </section>
@@ -123,6 +124,17 @@
       <section class="panel full">
         <h2>Fleet Status</h2>
         <div id="nodes" class="list"></div>
+      </section>
+
+      <section class="panel full" id="details-panel">
+        <h2>Node Details</h2>
+        <div class="details-controls">
+          <select id="details-node"></select>
+          <button id="details-disks">List Disks</button>
+          <button id="details-services" class="ghost">List Services</button>
+          <button id="details-logs" class="ghost">Show Machined Logs</button>
+        </div>
+        <pre id="details-output">Select a node to view details.</pre>
       </section>
     </main>
 

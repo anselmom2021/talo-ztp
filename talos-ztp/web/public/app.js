@@ -46,20 +46,28 @@ function nodeCard(node) {
   if (node.status === "pending") {
     actions.push(
       `<button data-action="approve" data-id="${node.id}">Approve</button>`,
-      `<button class="ghost" data-action="reject" data-id="${node.id}">Reject</button>`
+      `<button class="ghost" data-action="reject" data-id="${node.id}">Reject</button>`,
+      `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
   }
   if (node.status === "approved") {
     actions.push(
       `<button data-action="apply" data-id="${node.id}">Apply Config</button>`,
-      `<button class="ghost" data-action="install" data-id="${node.id}">Mark Installing</button>`
+      `<button class="ghost" data-action="install" data-id="${node.id}">Mark Installing</button>`,
+      `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
   }
   if (node.status === "installing") {
-    actions.push(`<button data-action="complete" data-id="${node.id}">Mark Installed</button>`);
+    actions.push(
+      `<button data-action="complete" data-id="${node.id}">Mark Installed</button>`,
+      `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
+    );
   }
   if (node.status === "configured") {
-    actions.push(`<button data-action="verify" data-id="${node.id}">Verify Applied</button>`);
+    actions.push(
+      `<button data-action="verify" data-id="${node.id}">Verify Applied</button>`,
+      `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
+    );
   }
 
   const clusterYaml = node.clusterPatchYaml
@@ -161,6 +169,13 @@ async function load() {
   const nodesEl = document.getElementById("nodes");
   nodesEl.innerHTML = nodes.map(nodeCard).join("") || "<p>No nodes yet.</p>";
 
+  const detailsSelect = document.getElementById("details-node");
+  if (detailsSelect) {
+    detailsSelect.innerHTML = nodes
+      .map((n) => `<option value="${n.id}">${n.name} (${n.ip})</option>`)
+      .join("");
+  }
+
   const approvalsEl = document.getElementById("approvals");
   const pendingApprovals = approvals.filter((a) => a.status === "pending");
   approvalsEl.innerHTML =
@@ -191,6 +206,8 @@ document.getElementById("node-form").addEventListener("submit", async (event) =>
 document.getElementById("discover-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.target;
+  const status = document.getElementById("discover-status");
+  status.textContent = "Scanning…";
   const payload = {
     networks: form.networks.value.trim(),
     role: form.role.value,
@@ -198,12 +215,16 @@ document.getElementById("discover-form").addEventListener("submit", async (event
     controlplanePatchPath: form.controlplanePatchPath.value.trim(),
     clusterPatchYaml: form.clusterPatchYaml.value.trim()
   };
-  await fetchJson("/api/discover", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
-  form.reset();
-  await load();
+  try {
+    const result = await fetchJson("/api/discover", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    status.textContent = `Found ${result.totalFound}. Added ${result.added.length}.`;
+    await load();
+  } catch (err) {
+    status.textContent = err.message;
+  }
 });
 
 document.addEventListener("click", async (event) => {
@@ -211,9 +232,39 @@ document.addEventListener("click", async (event) => {
   if (!button) return;
   const action = button.dataset.action;
   const id = button.dataset.id;
+  if (action === "details") {
+    const select = document.getElementById("details-node");
+    if (select) {
+      select.value = id;
+    }
+    return;
+  }
   await fetchJson(`/api/nodes/${id}/${action}`, { method: "POST" });
   await load();
 });
+
+async function detailAction(endpoint) {
+  const nodeId = document.getElementById("details-node")?.value;
+  const output = document.getElementById("details-output");
+  if (!nodeId) return;
+  output.textContent = "Loading...";
+  try {
+    const data = await fetchJson(endpoint(nodeId));
+    output.textContent = data.output || "No output.";
+  } catch (err) {
+    output.textContent = err.message;
+  }
+}
+
+document.getElementById("details-disks")?.addEventListener("click", () =>
+  detailAction((id) => `/api/nodes/${id}/disks`)
+);
+document.getElementById("details-services")?.addEventListener("click", () =>
+  detailAction((id) => `/api/nodes/${id}/services`)
+);
+document.getElementById("details-logs")?.addEventListener("click", () =>
+  detailAction((id) => `/api/nodes/${id}/logs?service=machined`)
+);
 
 load().catch((err) => {
   console.error(err);
