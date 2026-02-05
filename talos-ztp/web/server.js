@@ -171,6 +171,42 @@ async function getHostname(ip) {
   }
 }
 
+async function applyConfigForNode(node) {
+  const baseConfig = path.join(CONFIG_DIR, `${node.role}.yaml`);
+  if (!existsSync(baseConfig)) {
+    throw new Error(`base config not found: ${baseConfig}`);
+  }
+  await ensureCommand("talosctl");
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "talos-web-"));
+  try {
+    const inlinePatchPath = path.join(tempDir, "cluster-patch.yaml");
+    const patchedConfigPath = path.join(tempDir, "patched.yaml");
+    const patchArgs = [];
+    if (node.machinePatchPath) patchArgs.push("--patch", `@${node.machinePatchPath}`);
+    if (node.controlplanePatchPath) patchArgs.push("--patch", `@${node.controlplanePatchPath}`);
+    if (node.clusterPatchYaml) {
+      await writeFile(inlinePatchPath, node.clusterPatchYaml, "utf8");
+      patchArgs.push("--patch", `@${inlinePatchPath}`);
+    }
+
+    const patchCmd = talosctlArgs([
+      "machineconfig",
+      "patch",
+      baseConfig,
+      ...patchArgs
+    ]);
+    const patchedYaml = await runCommand("talosctl", patchCmd);
+    await writeFile(patchedConfigPath, patchedYaml, "utf8");
+
+    await runCommand(
+      "talosctl",
+      talosctlArgs(["apply-config", ...nodeArgs(node.ip), "-f", patchedConfigPath])
+    );
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const { pathname } = url;
@@ -204,6 +240,7 @@ const server = http.createServer(async (req, res) => {
         machinePatchPath: body.machinePatchPath || "",
         controlplanePatchPath: body.controlplanePatchPath || "",
         clusterPatchYaml: body.clusterPatchYaml || "",
+        autoApply: body.autoApply === true,
         status: "pending",
         createdAt: nowIso(),
         updatedAt: nowIso()
@@ -216,6 +253,17 @@ const server = http.createServer(async (req, res) => {
         status: "pending",
         createdAt: nowIso()
       });
+      if (node.autoApply) {
+        try {
+          await applyConfigForNode(node);
+          node.status = "configured";
+          node.lastAppliedAt = nowIso();
+          node.updatedAt = nowIso();
+        } catch (err) {
+          node.lastApplyError = err.message;
+          node.updatedAt = nowIso();
+        }
+      }
       await saveDb(db);
       return json(res, 201, node);
     } catch {
@@ -338,37 +386,8 @@ const server = http.createServer(async (req, res) => {
     const db = await loadDb();
     const node = db.nodes.find((n) => n.id === nodeId);
     if (!node) return notFound(res);
-    const baseConfig = path.join(CONFIG_DIR, `${node.role}.yaml`);
-    if (!existsSync(baseConfig)) {
-      return badRequest(res, `base config not found: ${baseConfig}`);
-    }
-    await ensureCommand("talosctl");
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "talos-web-"));
     try {
-      const inlinePatchPath = path.join(tempDir, "cluster-patch.yaml");
-      const patchedConfigPath = path.join(tempDir, "patched.yaml");
-      const patchArgs = [];
-      if (node.machinePatchPath) patchArgs.push("--patch", `@${node.machinePatchPath}`);
-      if (node.controlplanePatchPath) patchArgs.push("--patch", `@${node.controlplanePatchPath}`);
-      if (node.clusterPatchYaml) {
-        await writeFile(inlinePatchPath, node.clusterPatchYaml, "utf8");
-        patchArgs.push("--patch", `@${inlinePatchPath}`);
-      }
-
-      const patchCmd = talosctlArgs([
-        "machineconfig",
-        "patch",
-        baseConfig,
-        ...patchArgs
-      ]);
-      const patchedYaml = await runCommand("talosctl", patchCmd);
-      await writeFile(patchedConfigPath, patchedYaml, "utf8");
-
-      await runCommand(
-        "talosctl",
-        talosctlArgs(["apply-config", ...nodeArgs(node.ip), "-f", patchedConfigPath])
-      );
-
+      await applyConfigForNode(node);
       node.status = "configured";
       node.lastAppliedAt = nowIso();
       node.updatedAt = nowIso();
@@ -376,8 +395,6 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, node);
     } catch (err) {
       return badRequest(res, `apply failed: ${err.message}`);
-    } finally {
-      await rm(tempDir, { recursive: true, force: true });
     }
   }
 

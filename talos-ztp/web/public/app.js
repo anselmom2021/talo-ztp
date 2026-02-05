@@ -98,6 +98,11 @@ function nodeCard(node) {
           : ""
       }
       ${
+        node.lastApplyError
+          ? `<div class="row"><small class="muted">Apply error: ${escapeHtml(node.lastApplyError)}</small></div>`
+          : ""
+      }
+      ${
         patchInfo.length
           ? `<div class="row"><small class="muted">Patches: ${patchInfo.join(", ")}</small></div>`
           : ""
@@ -193,7 +198,8 @@ document.getElementById("node-form").addEventListener("submit", async (event) =>
     role: form.role.value,
     machinePatchPath: form.machinePatchPath.value.trim(),
     controlplanePatchPath: form.controlplanePatchPath.value.trim(),
-    clusterPatchYaml: form.clusterPatchYaml.value.trim()
+    clusterPatchYaml: form.clusterPatchYaml.value.trim(),
+    autoApply: form.autoApply.checked
   };
   await fetchJson("/api/nodes", {
     method: "POST",

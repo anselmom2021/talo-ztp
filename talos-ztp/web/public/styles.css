@@ -111,6 +111,13 @@ label {
   color: var(--muted);
 }
 
+label.inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
 input,
 select {
   background: var(--panel-2);

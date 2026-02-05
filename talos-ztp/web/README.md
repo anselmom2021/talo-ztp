@@ -18,6 +18,7 @@ Open `http://localhost:4173`.
 - Capture optional patch file paths and cluster YAML overrides per node
 - Apply configs via server-side `talosctl` and verify applied state
 - View node details (disks, services, logs)
+- Optional auto-apply on registration
 - Approval queue (approve/reject)
 - Status tracking (pending → approved → installing → installed)
 - Single-file JSON storage for easy backup
@@ -45,6 +46,7 @@ PORT=8080 node server.js
 - `GET /api/nodes`
 - `POST /api/nodes` `{ "name": "...", "ip": "...", "role": "controlplane|worker" }`
 - Optional fields: `machinePatchPath`, `controlplanePatchPath`, `clusterPatchYaml`
+- Optional field: `autoApply: true` to apply immediately after registration
 - `GET /api/approvals`
 - `POST /api/discover` `{ "networks": "192.168.1.0/24,10.0.0.0/24", "role": "worker" }`
 - Optional fields: `machinePatchPath`, `controlplanePatchPath`, `clusterPatchYaml`
