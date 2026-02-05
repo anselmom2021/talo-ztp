@@ -143,7 +143,7 @@ async function ensureTalosconfig() {
     // continue to create
   }
   await ensureCommand("talosctl");
-  await runCommand("talosctl", ["config", "new", "--force", `--talosconfig=${TALOSCONFIG}`]);
+  await runCommand("talosctl", ["config", "new", `--talosconfig=${TALOSCONFIG}`]);
 }
 
 function nodeArgs(ip) {
