@@ -1,6 +1,6 @@
 import http from "http";
 import { readFile, writeFile, mkdir, mkdtemp, rm, stat } from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, statSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
@@ -128,22 +128,43 @@ function runCommand(cmd, args) {
 
 function talosctlArgs(baseArgs) {
   const args = [];
-  if (TALOSCONFIG) {
-    args.push(`--talosconfig=${TALOSCONFIG}`);
-  } else if (!TALOS_INSECURE) {
-    args.push(`--talosconfig=${DEFAULT_TALOSCONFIG}`);
+  if (shouldUseTalosconfig()) {
+    args.push(`--talosconfig=${TALOSCONFIG || DEFAULT_TALOSCONFIG}`);
   }
-  if (TALOS_INSECURE) {
+  if (shouldUseInsecure()) {
     args.push("--insecure");
   }
   return args.concat(baseArgs);
 }
 
+function talosconfigPath() {
+  return TALOSCONFIG || DEFAULT_TALOSCONFIG;
+}
+
+function isTalosconfigEmpty() {
+  const cfg = talosconfigPath();
+  if (!existsSync(cfg)) return true;
+  try {
+    return statSync(cfg).size === 0;
+  } catch {
+    return true;
+  }
+}
+
+function shouldUseInsecure() {
+  return TALOS_INSECURE || isTalosconfigEmpty();
+}
+
+function shouldUseTalosconfig() {
+  if (isTalosconfigEmpty()) return false;
+  return true;
+}
+
 async function ensureTalosconfig() {
-  if (TALOS_INSECURE && !TALOSCONFIG) {
+  if (shouldUseInsecure() && !TALOSCONFIG) {
     return;
   }
-  const configPath = TALOSCONFIG || DEFAULT_TALOSCONFIG;
+  const configPath = talosconfigPath();
   try {
     const info = await stat(configPath);
     if (info.size > 0) return;
