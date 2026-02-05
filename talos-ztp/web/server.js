@@ -136,6 +136,10 @@ function talosctlArgs(baseArgs) {
   return args.concat(baseArgs);
 }
 
+function nodeArgs(ip) {
+  return ["-e", ip, "-n", ip];
+}
+
 async function discoverNodes(networks) {
   await ensureCommand("nmap");
   const nmapOut = await runCommand("nmap", ["-Pn", "-n", "-p", "50000", "-oG", "-", ...networks]);
@@ -155,10 +159,7 @@ async function getHostname(ip) {
   try {
     await ensureCommand("talosctl");
     const out = await runCommand("talosctl", talosctlArgs([
-      "-e",
-      ip,
-      "-n",
-      ip,
+      ...nodeArgs(ip),
       "get",
       "hostname",
       "-o",
@@ -288,7 +289,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const out = await runCommand(
         "talosctl",
-        talosctlArgs(["-n", node.ip, "get", "disks"])
+        talosctlArgs([...nodeArgs(node.ip), "get", "disks"])
       );
       return json(res, 200, { output: out });
     } catch (err) {
@@ -305,7 +306,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const out = await runCommand(
         "talosctl",
-        talosctlArgs(["-n", node.ip, "service"])
+        talosctlArgs([...nodeArgs(node.ip), "service"])
       );
       return json(res, 200, { output: out });
     } catch (err) {
@@ -323,7 +324,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const out = await runCommand(
         "talosctl",
-        talosctlArgs(["-n", node.ip, "logs", service, "--tail", "200"])
+        talosctlArgs([...nodeArgs(node.ip), "logs", service, "--tail", "200"])
       );
       return json(res, 200, { output: out });
     } catch (err) {
@@ -341,6 +342,7 @@ const server = http.createServer(async (req, res) => {
     if (!existsSync(baseConfig)) {
       return badRequest(res, `base config not found: ${baseConfig}`);
     }
+    await ensureCommand("talosctl");
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "talos-web-"));
     try {
       const inlinePatchPath = path.join(tempDir, "cluster-patch.yaml");
@@ -364,7 +366,7 @@ const server = http.createServer(async (req, res) => {
 
       await runCommand(
         "talosctl",
-        talosctlArgs(["apply-config", "-n", node.ip, "-f", patchedConfigPath])
+        talosctlArgs(["apply-config", ...nodeArgs(node.ip), "-f", patchedConfigPath])
       );
 
       node.status = "configured";
@@ -386,7 +388,8 @@ const server = http.createServer(async (req, res) => {
     const node = db.nodes.find((n) => n.id === nodeId);
     if (!node) return notFound(res);
     try {
-      await runCommand("talosctl", talosctlArgs(["-n", node.ip, "get", "machineconfig"]));
+      await ensureCommand("talosctl");
+      await runCommand("talosctl", talosctlArgs([...nodeArgs(node.ip), "get", "machineconfig"]));
       node.lastVerifiedAt = nowIso();
       node.status = node.status === "configured" ? "verified" : node.status;
       node.updatedAt = nowIso();

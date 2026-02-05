@@ -33,7 +33,7 @@ Delete this file to reset the app.
 - Discovery requires `nmap` and `talosctl` installed on the machine running the web server.
 - `CONFIG_DIR` points to the base Talos configs (default `../talos/generated`)
 - `TALOSCONFIG` points to a talosconfig file (optional)
-- `TALOS_INSECURE=true` to add `--insecure` to talosctl commands
+- `TALOS_INSECURE=true` to add `--insecure` to talosctl commands (needed for maintenance mode)
 
 Example:
 ```bash
