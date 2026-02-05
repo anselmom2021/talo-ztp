@@ -1,5 +1,5 @@
 import http from "http";
-import { readFile, writeFile, mkdir, mkdtemp, rm } from "fs/promises";
+import { readFile, writeFile, mkdir, mkdtemp, rm, stat } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -13,7 +13,8 @@ const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const CONFIG_DIR = process.env.CONFIG_DIR || path.join(__dirname, "..", "talos", "generated");
-const TALOSCONFIG = process.env.TALOSCONFIG || "";
+const DEFAULT_TALOSCONFIG = path.join(DATA_DIR, "talosconfig");
+const TALOSCONFIG = process.env.TALOSCONFIG || DEFAULT_TALOSCONFIG;
 const TALOS_INSECURE = process.env.TALOS_INSECURE === "true";
 
 const defaultDb = {
@@ -127,13 +128,22 @@ function runCommand(cmd, args) {
 
 function talosctlArgs(baseArgs) {
   const args = [];
-  if (TALOSCONFIG) {
-    args.push(`--talosconfig=${TALOSCONFIG}`);
-  }
+  args.push(`--talosconfig=${TALOSCONFIG}`);
   if (TALOS_INSECURE) {
     args.push("--insecure");
   }
   return args.concat(baseArgs);
+}
+
+async function ensureTalosconfig() {
+  try {
+    const info = await stat(TALOSCONFIG);
+    if (info.size > 0) return;
+  } catch {
+    // continue to create
+  }
+  await ensureCommand("talosctl");
+  await runCommand("talosctl", ["config", "new", "--force", `--talosconfig=${TALOSCONFIG}`]);
 }
 
 function nodeArgs(ip) {
@@ -142,6 +152,7 @@ function nodeArgs(ip) {
 
 async function discoverNodes(networks) {
   await ensureCommand("nmap");
+  await ensureTalosconfig();
   const nmapOut = await runCommand("nmap", ["-Pn", "-n", "-p", "50000", "-oG", "-", ...networks]);
   const candidates = [];
   nmapOut.split("\n").forEach((line) => {
@@ -158,6 +169,7 @@ async function discoverNodes(networks) {
 async function getHostname(ip) {
   try {
     await ensureCommand("talosctl");
+    await ensureTalosconfig();
     const out = await runCommand("talosctl", talosctlArgs([
       ...nodeArgs(ip),
       "get",
@@ -177,6 +189,7 @@ async function applyConfigForNode(node) {
     throw new Error(`base config not found: ${baseConfig}`);
   }
   await ensureCommand("talosctl");
+  await ensureTalosconfig();
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "talos-web-"));
   try {
     const inlinePatchPath = path.join(tempDir, "cluster-patch.yaml");
@@ -288,6 +301,7 @@ const server = http.createServer(async (req, res) => {
       let candidates;
       try {
         await ensureCommand("talosctl");
+        await ensureTalosconfig();
         candidates = await discoverNodes(networks);
       } catch (err) {
         return badRequest(res, `discovery failed: ${err.message}`);
@@ -335,6 +349,7 @@ const server = http.createServer(async (req, res) => {
     const node = db.nodes.find((n) => n.id === nodeId);
     if (!node) return notFound(res);
     try {
+      await ensureTalosconfig();
       const out = await runCommand(
         "talosctl",
         talosctlArgs([...nodeArgs(node.ip), "get", "disks"])
@@ -352,6 +367,7 @@ const server = http.createServer(async (req, res) => {
     const node = db.nodes.find((n) => n.id === nodeId);
     if (!node) return notFound(res);
     try {
+      await ensureTalosconfig();
       const out = await runCommand(
         "talosctl",
         talosctlArgs([...nodeArgs(node.ip), "service"])
@@ -370,6 +386,7 @@ const server = http.createServer(async (req, res) => {
     if (!node) return notFound(res);
     const service = url.searchParams.get("service") || "machined";
     try {
+      await ensureTalosconfig();
       const out = await runCommand(
         "talosctl",
         talosctlArgs([...nodeArgs(node.ip), "logs", service, "--tail", "200"])
@@ -406,6 +423,7 @@ const server = http.createServer(async (req, res) => {
     if (!node) return notFound(res);
     try {
       await ensureCommand("talosctl");
+      await ensureTalosconfig();
       await runCommand("talosctl", talosctlArgs([...nodeArgs(node.ip), "get", "machineconfig"]));
       node.lastVerifiedAt = nowIso();
       node.status = node.status === "configured" ? "verified" : node.status;
