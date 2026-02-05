@@ -14,7 +14,7 @@ const DB_PATH = path.join(DATA_DIR, "db.json");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const CONFIG_DIR = process.env.CONFIG_DIR || path.join(__dirname, "..", "talos", "generated");
 const DEFAULT_TALOSCONFIG = path.join(DATA_DIR, "talosconfig");
-const TALOSCONFIG = process.env.TALOSCONFIG || DEFAULT_TALOSCONFIG;
+const TALOSCONFIG = process.env.TALOSCONFIG || "";
 const TALOS_INSECURE = process.env.TALOS_INSECURE === "true";
 
 const defaultDb = {
@@ -128,7 +128,11 @@ function runCommand(cmd, args) {
 
 function talosctlArgs(baseArgs) {
   const args = [];
-  args.push(`--talosconfig=${TALOSCONFIG}`);
+  if (TALOSCONFIG) {
+    args.push(`--talosconfig=${TALOSCONFIG}`);
+  } else if (!TALOS_INSECURE) {
+    args.push(`--talosconfig=${DEFAULT_TALOSCONFIG}`);
+  }
   if (TALOS_INSECURE) {
     args.push("--insecure");
   }
@@ -136,14 +140,18 @@ function talosctlArgs(baseArgs) {
 }
 
 async function ensureTalosconfig() {
+  if (TALOS_INSECURE && !TALOSCONFIG) {
+    return;
+  }
+  const configPath = TALOSCONFIG || DEFAULT_TALOSCONFIG;
   try {
-    const info = await stat(TALOSCONFIG);
+    const info = await stat(configPath);
     if (info.size > 0) return;
   } catch {
     // continue to create
   }
   await ensureCommand("talosctl");
-  await runCommand("talosctl", ["config", "new", `--talosconfig=${TALOSCONFIG}`]);
+  await runCommand("talosctl", ["config", "new", `--talosconfig=${configPath}`]);
 }
 
 function nodeArgs(ip) {
