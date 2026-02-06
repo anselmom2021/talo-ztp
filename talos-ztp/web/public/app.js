@@ -53,7 +53,7 @@ function nodeCard(node) {
   if (node.status === "approved") {
     actions.push(
       `<button data-action="gen-config" data-id="${node.id}" ${node.generatedConfigAt ? "disabled" : ""}>Gen Config</button>`,
-      `<button data-action="apply" data-id="${node.id}">Apply Config</button>`,
+      `${node.generatedConfigAt ? `<button data-action="apply" data-id="${node.id}">Apply Config</button>` : ""}`,
       `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
   }
@@ -117,6 +117,9 @@ function nodeCard(node) {
               <label>Cluster IP
                 <input data-field="clusterIp" data-id="${node.id}" value="${escapeHtml(node.clusterIp || "")}" />
               </label>
+              ${
+                node.generatedConfigAt
+                  ? `
               <label>Base controlplane.yaml
                 <input type="file" data-file="baseConfig" data-id="${node.id}" />
               </label>
@@ -129,6 +132,9 @@ function nodeCard(node) {
               <label>talosconfig (optional)
                 <input type="file" data-file="talosconfig" data-id="${node.id}" />
               </label>
+                  `
+                  : ""
+              }
             </div>`
           : ""
       }
