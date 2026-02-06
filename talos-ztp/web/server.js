@@ -109,10 +109,18 @@ async function ensureCommand(cmd) {
   }
 }
 
-function runCommand(cmd, args) {
+function runCommand(cmd, args, envOverride) {
   return new Promise((resolve, reject) => {
     let env = process.env;
-    if (cmd === "talosctl" && shouldUseInsecure()) {
+    if (envOverride) {
+      env = { ...process.env, ...envOverride };
+      if (envOverride.TALOSCONFIG === null) {
+        delete env.TALOSCONFIG;
+      }
+      if (envOverride.TALOSCONFIG_FILE === null) {
+        delete env.TALOSCONFIG_FILE;
+      }
+    } else if (cmd === "talosctl" && shouldUseInsecure()) {
       env = { ...process.env };
       delete env.TALOSCONFIG;
       delete env.TALOSCONFIG_FILE;
@@ -257,7 +265,7 @@ async function applyConfigForNode(node) {
       "patch",
       baseConfig,
       ...patchArgs
-    ], node.talosconfigYaml ? talosconfigPath : "");
+    ], "");
     const patchedYaml = await runCommand("talosctl", patchCmd);
     await writeFile(patchedConfigPath, patchedYaml, "utf8");
 
@@ -266,8 +274,11 @@ async function applyConfigForNode(node) {
       talosctlArgsForNode(
         node,
         ["apply-config", ...nodeArgs(node.ip), "-f", patchedConfigPath],
-        node.talosconfigYaml ? talosconfigPath : ""
-      )
+        ""
+      ),
+      node.talosconfigYaml
+        ? { TALOSCONFIG: talosconfigPath }
+        : { TALOSCONFIG: null, TALOSCONFIG_FILE: null }
     );
   } finally {
     await rm(tempDir, { recursive: true, force: true });
@@ -561,8 +572,11 @@ const server = http.createServer(async (req, res) => {
         talosctlArgsForNode(
           node,
           [...nodeArgs(node.ip), "get", "machineconfig"],
-          node.talosconfigYaml ? talosconfigPath : ""
-        )
+          ""
+        ),
+        node.talosconfigYaml
+          ? { TALOSCONFIG: talosconfigPath }
+          : { TALOSCONFIG: null, TALOSCONFIG_FILE: null }
       );
       await rm(tempDir, { recursive: true, force: true });
       node.lastVerifiedAt = nowIso();
