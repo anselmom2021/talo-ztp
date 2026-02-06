@@ -53,7 +53,6 @@ function nodeCard(node) {
   if (node.status === "approved") {
     actions.push(
       `<button data-action="apply" data-id="${node.id}">Apply Config</button>`,
-      `<button class="ghost" data-action="install" data-id="${node.id}">Mark Installing</button>`,
       `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
   }
@@ -108,6 +107,30 @@ function nodeCard(node) {
           : ""
       }
       ${clusterYaml}
+      ${
+        node.status === "approved"
+          ? `<div class="apply-grid">
+              <label>Cluster Name
+                <input data-field="clusterName" data-id="${node.id}" value="${escapeHtml(node.clusterName || "")}" />
+              </label>
+              <label>Cluster IP
+                <input data-field="clusterIp" data-id="${node.id}" value="${escapeHtml(node.clusterIp || "")}" />
+              </label>
+              <label>Base controlplane.yaml
+                <input type="file" data-file="baseConfig" data-id="${node.id}" />
+              </label>
+              <label>Patch machine.yaml
+                <input type="file" data-file="patchMachine" data-id="${node.id}" />
+              </label>
+              <label>Patch controlplane.yaml
+                <input type="file" data-file="patchControlplane" data-id="${node.id}" />
+              </label>
+              <label>talosconfig (optional)
+                <input type="file" data-file="talosconfig" data-id="${node.id}" />
+              </label>
+            </div>`
+          : ""
+      }
       ${actions.length ? `<div class="actions">${actions.join("")}</div>` : ""}
     </div>
   `;
@@ -174,12 +197,8 @@ async function load() {
   const nodesEl = document.getElementById("nodes");
   nodesEl.innerHTML = nodes.map(nodeCard).join("") || "<p>No nodes yet.</p>";
 
-  const detailsSelect = document.getElementById("details-node");
-  if (detailsSelect) {
-    detailsSelect.innerHTML = nodes
-      .map((n) => `<option value="${n.id}">${n.name} (${n.ip})</option>`)
-      .join("");
-  }
+  nodeCache.clear();
+  nodes.forEach((n) => nodeCache.set(n.id, n));
 
   const approvalsEl = document.getElementById("approvals");
   const pendingApprovals = approvals.filter((a) => a.status === "pending");
@@ -239,38 +258,83 @@ document.addEventListener("click", async (event) => {
   const action = button.dataset.action;
   const id = button.dataset.id;
   if (action === "details") {
-    const select = document.getElementById("details-node");
-    if (select) {
-      select.value = id;
-    }
+    setDetails(nodeCache.get(id));
+    return;
+  }
+  if (action === "apply") {
+    const payload = await buildApplyPayload(id);
+    await fetchJson(`/api/nodes/${id}/apply`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    await load();
     return;
   }
   await fetchJson(`/api/nodes/${id}/${action}`, { method: "POST" });
   await load();
 });
 
-async function detailAction(endpoint) {
-  const nodeId = document.getElementById("details-node")?.value;
-  const output = document.getElementById("details-output");
-  if (!nodeId) return;
-  output.textContent = "Loading...";
-  try {
-    const data = await fetchJson(endpoint(nodeId));
-    output.textContent = data.output || "No output.";
-  } catch (err) {
-    output.textContent = err.message;
+const nodeCache = new Map();
+
+function setDetails(node) {
+  document.getElementById("detail-node-name").textContent = node?.name || "-";
+  document.getElementById("detail-cluster-name").textContent = node?.clusterName || "-";
+  document.getElementById("detail-node-ip").textContent = node?.ip || "-";
+  document.getElementById("detail-cluster-ip").textContent = node?.clusterIp || "-";
+  const downloadBtn = document.getElementById("details-download");
+  if (node?.talosconfigYaml) {
+    downloadBtn.disabled = false;
+    downloadBtn.onclick = () => downloadTalosconfig(node.id);
+  } else {
+    downloadBtn.disabled = true;
+    downloadBtn.onclick = null;
   }
 }
 
-document.getElementById("details-disks")?.addEventListener("click", () =>
-  detailAction((id) => `/api/nodes/${id}/disks`)
-);
-document.getElementById("details-services")?.addEventListener("click", () =>
-  detailAction((id) => `/api/nodes/${id}/services`)
-);
-document.getElementById("details-logs")?.addEventListener("click", () =>
-  detailAction((id) => `/api/nodes/${id}/logs?service=machined`)
-);
+async function downloadTalosconfig(nodeId) {
+  const res = await fetch(`/api/nodes/${nodeId}/talosconfig`);
+  if (!res.ok) {
+    alert("talosconfig not available");
+    return;
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `talosconfig-${nodeId}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function buildApplyPayload(nodeId) {
+  const getFile = (key) =>
+    document.querySelector(`input[data-file="${key}"][data-id="${nodeId}"]`)?.files?.[0];
+  const getField = (key) =>
+    document.querySelector(`input[data-field="${key}"][data-id="${nodeId}"]`)?.value?.trim() || "";
+
+  const baseConfig = getFile("baseConfig");
+  if (!baseConfig) {
+    throw new Error("base controlplane.yaml is required");
+  }
+
+  const readText = (file) =>
+    new Promise((resolve, reject) => {
+      if (!file) return resolve("");
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result || "");
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+
+  return {
+    clusterName: getField("clusterName"),
+    clusterIp: getField("clusterIp"),
+    baseConfigYaml: await readText(baseConfig),
+    patchMachineYaml: await readText(getFile("patchMachine")),
+    patchControlplaneYaml: await readText(getFile("patchControlplane")),
+    talosconfigYaml: await readText(getFile("talosconfig"))
+  };
+}
 
 load().catch((err) => {
   console.error(err);

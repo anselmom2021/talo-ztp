@@ -111,7 +111,13 @@ async function ensureCommand(cmd) {
 
 function runCommand(cmd, args) {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let env = process.env;
+    if (cmd === "talosctl" && shouldUseInsecure()) {
+      env = { ...process.env };
+      delete env.TALOSCONFIG;
+      delete env.TALOSCONFIG_FILE;
+    }
+    const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], env });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (d) => (stdout += d.toString()));
@@ -129,6 +135,19 @@ function runCommand(cmd, args) {
 function talosctlArgs(baseArgs) {
   const args = [];
   if (shouldUseTalosconfig()) {
+    args.push(`--talosconfig=${TALOSCONFIG || DEFAULT_TALOSCONFIG}`);
+  }
+  if (shouldUseInsecure()) {
+    args.push("--insecure");
+  }
+  return args.concat(baseArgs);
+}
+
+function talosctlArgsForNode(node, baseArgs, talosconfigPath) {
+  const args = [];
+  if (talosconfigPath) {
+    args.push(`--talosconfig=${talosconfigPath}`);
+  } else if (shouldUseTalosconfig()) {
     args.push(`--talosconfig=${TALOSCONFIG || DEFAULT_TALOSCONFIG}`);
   }
   if (shouldUseInsecure()) {
@@ -213,9 +232,9 @@ async function getHostname(ip) {
 }
 
 async function applyConfigForNode(node) {
-  const baseConfig = path.join(CONFIG_DIR, `${node.role}.yaml`);
-  if (!existsSync(baseConfig)) {
-    throw new Error(`base config not found: ${baseConfig}`);
+  const baseConfigPath = path.join(CONFIG_DIR, `${node.role}.yaml`);
+  if (!node.baseConfigYaml && !existsSync(baseConfigPath)) {
+    throw new Error(`base config not found: ${baseConfigPath}`);
   }
   await ensureCommand("talosctl");
   await ensureTalosconfig();
@@ -223,26 +242,51 @@ async function applyConfigForNode(node) {
   try {
     const inlinePatchPath = path.join(tempDir, "cluster-patch.yaml");
     const patchedConfigPath = path.join(tempDir, "patched.yaml");
+    const baseConfigPathTemp = path.join(tempDir, "base.yaml");
+    const talosconfigPath = path.join(tempDir, "talosconfig");
+    if (node.baseConfigYaml) {
+      await writeFile(baseConfigPathTemp, node.baseConfigYaml, "utf8");
+    }
+    if (node.talosconfigYaml) {
+      await writeFile(talosconfigPath, node.talosconfigYaml, "utf8");
+    }
+    const baseConfig = node.baseConfigYaml ? baseConfigPathTemp : baseConfigPath;
     const patchArgs = [];
-    if (node.machinePatchPath) patchArgs.push("--patch", `@${node.machinePatchPath}`);
-    if (node.controlplanePatchPath) patchArgs.push("--patch", `@${node.controlplanePatchPath}`);
+    if (node.patchMachineYaml) {
+      const pathMachine = path.join(tempDir, "patch-machine.yaml");
+      await writeFile(pathMachine, node.patchMachineYaml, "utf8");
+      patchArgs.push("--patch", `@${pathMachine}`);
+    } else if (node.machinePatchPath) {
+      patchArgs.push("--patch", `@${node.machinePatchPath}`);
+    }
+    if (node.patchControlplaneYaml) {
+      const pathControl = path.join(tempDir, "patch-controlplane.yaml");
+      await writeFile(pathControl, node.patchControlplaneYaml, "utf8");
+      patchArgs.push("--patch", `@${pathControl}`);
+    } else if (node.controlplanePatchPath) {
+      patchArgs.push("--patch", `@${node.controlplanePatchPath}`);
+    }
     if (node.clusterPatchYaml) {
       await writeFile(inlinePatchPath, node.clusterPatchYaml, "utf8");
       patchArgs.push("--patch", `@${inlinePatchPath}`);
     }
 
-    const patchCmd = talosctlArgs([
+    const patchCmd = talosctlArgsForNode(node, [
       "machineconfig",
       "patch",
       baseConfig,
       ...patchArgs
-    ]);
+    ], node.talosconfigYaml ? talosconfigPath : "");
     const patchedYaml = await runCommand("talosctl", patchCmd);
     await writeFile(patchedConfigPath, patchedYaml, "utf8");
 
     await runCommand(
       "talosctl",
-      talosctlArgs(["apply-config", ...nodeArgs(node.ip), "-f", patchedConfigPath])
+      talosctlArgsForNode(
+        node,
+        ["apply-config", ...nodeArgs(node.ip), "-f", patchedConfigPath],
+        node.talosconfigYaml ? talosconfigPath : ""
+      )
     );
   } finally {
     await rm(tempDir, { recursive: true, force: true });
@@ -266,6 +310,20 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && pathname === "/api/approvals") {
     const db = await loadDb();
     return json(res, 200, db.approvals);
+  }
+
+  const nodeTalosconfigMatch = pathname.match(/^\/api\/nodes\/([^/]+)\/talosconfig$/);
+  if (req.method === "GET" && nodeTalosconfigMatch) {
+    const [, nodeId] = nodeTalosconfigMatch;
+    const db = await loadDb();
+    const node = db.nodes.find((n) => n.id === nodeId);
+    if (!node || !node.talosconfigYaml) return notFound(res);
+    res.writeHead(200, {
+      "Content-Type": "application/octet-stream",
+      "Content-Disposition": `attachment; filename="talosconfig-${nodeId}"`
+    });
+    res.end(node.talosconfigYaml);
+    return;
   }
   if (req.method === "POST" && pathname === "/api/nodes") {
     try {
@@ -433,6 +491,16 @@ const server = http.createServer(async (req, res) => {
     const node = db.nodes.find((n) => n.id === nodeId);
     if (!node) return notFound(res);
     try {
+      const body = await parseBody(req);
+      if (!body.baseConfigYaml) {
+        return badRequest(res, "baseConfigYaml is required");
+      }
+      node.clusterName = body.clusterName || node.clusterName || "";
+      node.clusterIp = body.clusterIp || node.clusterIp || "";
+      node.baseConfigYaml = body.baseConfigYaml;
+      node.patchMachineYaml = body.patchMachineYaml || "";
+      node.patchControlplaneYaml = body.patchControlplaneYaml || "";
+      node.talosconfigYaml = body.talosconfigYaml || node.talosconfigYaml || "";
       await applyConfigForNode(node);
       node.status = "configured";
       node.lastAppliedAt = nowIso();
@@ -453,7 +521,20 @@ const server = http.createServer(async (req, res) => {
     try {
       await ensureCommand("talosctl");
       await ensureTalosconfig();
-      await runCommand("talosctl", talosctlArgs([...nodeArgs(node.ip), "get", "machineconfig"]));
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), "talos-web-"));
+      const talosconfigPath = path.join(tempDir, "talosconfig");
+      if (node.talosconfigYaml) {
+        await writeFile(talosconfigPath, node.talosconfigYaml, "utf8");
+      }
+      await runCommand(
+        "talosctl",
+        talosctlArgsForNode(
+          node,
+          [...nodeArgs(node.ip), "get", "machineconfig"],
+          node.talosconfigYaml ? talosconfigPath : ""
+        )
+      );
+      await rm(tempDir, { recursive: true, force: true });
       node.lastVerifiedAt = nowIso();
       node.status = node.status === "configured" ? "verified" : node.status;
       node.updatedAt = nowIso();

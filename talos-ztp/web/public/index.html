@@ -132,13 +132,27 @@
 
       <section class="panel full" id="details-panel">
         <h2>Node Details</h2>
-        <div class="details-controls">
-          <select id="details-node"></select>
-          <button id="details-disks">List Disks</button>
-          <button id="details-services" class="ghost">List Services</button>
-          <button id="details-logs" class="ghost">Show Machined Logs</button>
+        <div class="details-grid">
+          <div>
+            <span class="label">Node Name</span>
+            <span id="detail-node-name" class="value">-</span>
+          </div>
+          <div>
+            <span class="label">Cluster Name</span>
+            <span id="detail-cluster-name" class="value">-</span>
+          </div>
+          <div>
+            <span class="label">Node IP</span>
+            <span id="detail-node-ip" class="value">-</span>
+          </div>
+          <div>
+            <span class="label">Cluster IP</span>
+            <span id="detail-cluster-ip" class="value">-</span>
+          </div>
         </div>
-        <pre id="details-output">Select a node to view details.</pre>
+        <div class="details-actions">
+          <button id="details-download" class="ghost" disabled>Download talosconfig</button>
+        </div>
       </section>
     </main>
 

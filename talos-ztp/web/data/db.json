@@ -1,25 +1,25 @@
 {
   "nodes": [
     {
-      "id": "a8uq4pml",
+      "id": "83s4dsue",
       "name": "192.168.64.53",
       "ip": "192.168.64.53",
-      "role": "worker",
+      "role": "controlplane",
       "machinePatchPath": "",
       "controlplanePatchPath": "",
       "clusterPatchYaml": "",
       "status": "approved",
-      "createdAt": "2026-02-04T18:53:42.051Z",
-      "updatedAt": "2026-02-04T18:54:47.269Z"
+      "createdAt": "2026-02-05T16:03:31.471Z",
+      "updatedAt": "2026-02-05T16:03:47.833Z"
     }
   ],
   "approvals": [
     {
-      "id": "sody98sc",
-      "nodeId": "a8uq4pml",
+      "id": "rg4b76mv",
+      "nodeId": "83s4dsue",
       "action": "install",
       "status": "approved",
-      "createdAt": "2026-02-04T18:53:42.051Z"
+      "createdAt": "2026-02-05T16:03:31.471Z"
     }
   ]
 }
