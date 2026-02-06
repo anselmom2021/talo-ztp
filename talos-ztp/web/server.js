@@ -135,7 +135,7 @@ function runCommand(cmd, args) {
 function talosctlArgs(baseArgs) {
   const args = [];
   if (shouldUseTalosconfig()) {
-    args.push(`--talosconfig=${TALOSCONFIG || DEFAULT_TALOSCONFIG}`);
+    args.push("--talosconfig", TALOSCONFIG || DEFAULT_TALOSCONFIG);
   }
   if (shouldUseInsecure()) {
     args.push("--insecure");
@@ -146,7 +146,7 @@ function talosctlArgs(baseArgs) {
 function talosctlArgsForNode(node, baseArgs, talosconfigPath) {
   const args = [];
   if (talosconfigPath) {
-    args.push(`--talosconfig=${talosconfigPath}`);
+    args.push("--talosconfig", talosconfigPath);
   } else if (shouldUseTalosconfig()) {
     args.push(`--talosconfig=${TALOSCONFIG || DEFAULT_TALOSCONFIG}`);
   }
