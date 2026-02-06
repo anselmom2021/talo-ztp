@@ -262,12 +262,16 @@ document.addEventListener("click", async (event) => {
     return;
   }
   if (action === "apply") {
-    const payload = await buildApplyPayload(id);
-    await fetchJson(`/api/nodes/${id}/apply`, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
-    await load();
+    try {
+      const payload = await buildApplyPayload(id);
+      await fetchJson(`/api/nodes/${id}/apply`, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      await load();
+    } catch (err) {
+      alert(err.message);
+    }
     return;
   }
   await fetchJson(`/api/nodes/${id}/${action}`, { method: "POST" });
