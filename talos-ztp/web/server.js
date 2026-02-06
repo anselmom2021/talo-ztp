@@ -134,22 +134,14 @@ function runCommand(cmd, args) {
 
 function talosctlArgs(baseArgs) {
   const args = [];
-  if (shouldUseTalosconfig()) {
-    args.push("--talosconfig", TALOSCONFIG || DEFAULT_TALOSCONFIG);
-  }
   if (shouldUseInsecure()) {
     args.push("--insecure");
   }
   return args.concat(baseArgs);
 }
 
-function talosctlArgsForNode(node, baseArgs, talosconfigPath) {
+function talosctlArgsForNode(_node, baseArgs, _talosconfigPath) {
   const args = [];
-  if (talosconfigPath) {
-    args.push("--talosconfig", talosconfigPath);
-  } else if (shouldUseTalosconfig()) {
-    args.push(`--talosconfig=${TALOSCONFIG || DEFAULT_TALOSCONFIG}`);
-  }
   if (shouldUseInsecure()) {
     args.push("--insecure");
   }
@@ -180,18 +172,7 @@ function shouldUseTalosconfig() {
 }
 
 async function ensureTalosconfig() {
-  if (shouldUseInsecure() && !TALOSCONFIG) {
-    return;
-  }
-  const configPath = talosconfigPath();
-  try {
-    const info = await stat(configPath);
-    if (info.size > 0) return;
-  } catch {
-    // continue to create
-  }
-  await ensureCommand("talosctl");
-  await runCommand("talosctl", ["config", "new", `--talosconfig=${configPath}`]);
+  return;
 }
 
 function nodeArgs(ip) {
