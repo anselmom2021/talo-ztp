@@ -45,6 +45,7 @@ PORT=8080 node server.js
 - `POST /api/nodes` `{ "name": "...", "ip": "...", "role": "controlplane|worker" }`
 - Optional fields: `machinePatchPath`, `controlplanePatchPath`, `clusterPatchYaml`
 - Optional field: `autoApply: true` to apply immediately after registration
+- Optional fields: `clusterName`, `clusterIp`
 - `GET /api/approvals`
 - `POST /api/discover` `{ "networks": "192.168.1.0/24,10.0.0.0/24", "role": "worker" }`
 - Optional fields: `machinePatchPath`, `controlplanePatchPath`, `clusterPatchYaml`

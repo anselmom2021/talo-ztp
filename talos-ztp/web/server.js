@@ -293,6 +293,50 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, db.approvals);
   }
 
+  const nodeGenMatch = pathname.match(/^\/api\/nodes\/([^/]+)\/gen-config$/);
+  if (req.method === "POST" && nodeGenMatch) {
+    const [, nodeId] = nodeGenMatch;
+    const db = await loadDb();
+    const node = db.nodes.find((n) => n.id === nodeId);
+    if (!node) return notFound(res);
+    try {
+      const body = await parseBody(req);
+      const clusterName = body.clusterName || node.clusterName || "";
+      const clusterIp = body.clusterIp || node.clusterIp || "";
+      if (!clusterName || !clusterIp) {
+        return badRequest(res, "clusterName and clusterIp are required");
+      }
+      await ensureCommand("talosctl");
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), "talos-gen-"));
+      try {
+        const endpoint = `https://${clusterIp}:6443`;
+        await runCommand("talosctl", [
+          "gen",
+          "config",
+          clusterName,
+          endpoint,
+          "--output-dir",
+          tempDir,
+          "--force",
+          "--with-docs=false"
+        ]);
+        const roleFile = path.join(tempDir, `${node.role}.yaml`);
+        const cfg = await readFile(roleFile, "utf8");
+        node.clusterName = clusterName;
+        node.clusterIp = clusterIp;
+        node.baseConfigYaml = cfg;
+        node.generatedConfigAt = nowIso();
+        node.updatedAt = nowIso();
+        await saveDb(db);
+        return json(res, 200, node);
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
+    } catch (err) {
+      return badRequest(res, `gen-config failed: ${err.message}`);
+    }
+  }
+
   const nodeTalosconfigMatch = pathname.match(/^\/api\/nodes\/([^/]+)\/talosconfig$/);
   if (req.method === "GET" && nodeTalosconfigMatch) {
     const [, nodeId] = nodeTalosconfigMatch;
@@ -321,6 +365,8 @@ const server = http.createServer(async (req, res) => {
         machinePatchPath: body.machinePatchPath || "",
         controlplanePatchPath: body.controlplanePatchPath || "",
         clusterPatchYaml: body.clusterPatchYaml || "",
+        clusterName: body.clusterName || "",
+        clusterIp: body.clusterIp || "",
         autoApply: body.autoApply === true,
         status: "pending",
         createdAt: nowIso(),
@@ -473,12 +519,14 @@ const server = http.createServer(async (req, res) => {
     if (!node) return notFound(res);
     try {
       const body = await parseBody(req);
-      if (!body.baseConfigYaml) {
+      if (!body.baseConfigYaml && !node.baseConfigYaml) {
         return badRequest(res, "baseConfigYaml is required");
       }
       node.clusterName = body.clusterName || node.clusterName || "";
       node.clusterIp = body.clusterIp || node.clusterIp || "";
-      node.baseConfigYaml = body.baseConfigYaml;
+      if (body.baseConfigYaml) {
+        node.baseConfigYaml = body.baseConfigYaml;
+      }
       node.patchMachineYaml = body.patchMachineYaml || "";
       node.patchControlplaneYaml = body.patchControlplaneYaml || "";
       node.talosconfigYaml = body.talosconfigYaml || node.talosconfigYaml || "";

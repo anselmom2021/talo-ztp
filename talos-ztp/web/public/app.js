@@ -52,6 +52,7 @@ function nodeCard(node) {
   }
   if (node.status === "approved") {
     actions.push(
+      `<button data-action="gen-config" data-id="${node.id}" ${node.generatedConfigAt ? "disabled" : ""}>Gen Config</button>`,
       `<button data-action="apply" data-id="${node.id}">Apply Config</button>`,
       `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
@@ -218,6 +219,8 @@ document.getElementById("node-form").addEventListener("submit", async (event) =>
     machinePatchPath: form.machinePatchPath.value.trim(),
     controlplanePatchPath: form.controlplanePatchPath.value.trim(),
     clusterPatchYaml: form.clusterPatchYaml.value.trim(),
+    clusterName: form.clusterName.value.trim(),
+    clusterIp: form.clusterIp.value.trim(),
     autoApply: form.autoApply.checked
   };
   await fetchJson("/api/nodes", {
@@ -259,6 +262,22 @@ document.addEventListener("click", async (event) => {
   const id = button.dataset.id;
   if (action === "details") {
     setDetails(nodeCache.get(id));
+    return;
+  }
+  if (action === "gen-config") {
+    const payload = {
+      clusterName: document.querySelector(`input[data-field="clusterName"][data-id="${id}"]`)?.value?.trim() || "",
+      clusterIp: document.querySelector(`input[data-field="clusterIp"][data-id="${id}"]`)?.value?.trim() || ""
+    };
+    try {
+      await fetchJson(`/api/nodes/${id}/gen-config`, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      await load();
+    } catch (err) {
+      alert(err.message);
+    }
     return;
   }
   if (action === "apply") {
@@ -317,9 +336,6 @@ async function buildApplyPayload(nodeId) {
     document.querySelector(`input[data-field="${key}"][data-id="${nodeId}"]`)?.value?.trim() || "";
 
   const baseConfig = getFile("baseConfig");
-  if (!baseConfig) {
-    throw new Error("base controlplane.yaml is required");
-  }
 
   const readText = (file) =>
     new Promise((resolve, reject) => {
