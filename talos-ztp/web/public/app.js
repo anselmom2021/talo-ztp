@@ -52,8 +52,8 @@ function nodeCard(node) {
   }
   if (node.status === "approved") {
     actions.push(
-      `<button data-action="gen-config" data-id="${node.id}" ${node.generatedConfigAt ? "disabled" : ""}>Gen Config</button>`,
-      `${node.generatedConfigAt ? `<button data-action="apply" data-id="${node.id}">Apply Config</button>` : ""}`,
+      `<button data-action="gen-config" data-id="${node.id}" ${node.genConfigReady ? "disabled" : ""}>Gen Config</button>`,
+      `${node.genConfigReady ? `<button data-action="apply" data-id="${node.id}">Apply Config</button>` : ""}`,
       `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
   }
@@ -118,7 +118,7 @@ function nodeCard(node) {
                 <input data-field="clusterIp" data-id="${node.id}" value="${escapeHtml(node.clusterIp || "")}" />
               </label>
               ${
-                node.generatedConfigAt
+                node.genConfigReady
                   ? `
               <label>Base controlplane.yaml
                 <input type="file" data-file="baseConfig" data-id="${node.id}" />

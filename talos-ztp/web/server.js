@@ -326,6 +326,7 @@ const server = http.createServer(async (req, res) => {
         node.clusterIp = clusterIp;
         node.baseConfigYaml = cfg;
         node.generatedConfigAt = nowIso();
+        node.genConfigReady = true;
         node.updatedAt = nowIso();
         await saveDb(db);
         return json(res, 200, node);

@@ -57,6 +57,9 @@ PORT=8080 node server.js
 - `POST /api/nodes/:id/complete`
 - `GET /api/nodes/:id/talosconfig` (downloads stored talosconfig)
 
+UI behavior:
+- File inputs + Apply Config appear only after Gen Config sets `genConfigReady`.
+
 ## Notes
 
 This tool is intended as a local operator dashboard. It is not authenticated and should not be exposed publicly without adding auth.
