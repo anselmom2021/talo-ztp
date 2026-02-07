@@ -280,8 +280,9 @@ document.addEventListener("click", async (event) => {
         method: "POST",
         body: JSON.stringify(payload)
       });
-      await downloadTalosconfig(id);
       await load();
+      setDetails(nodeCache.get(id));
+      alert("Gen Config completed. Use the Download talosconfig button in Details.");
     } catch (err) {
       alert(err.message);
     }
