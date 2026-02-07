@@ -330,9 +330,10 @@ document.addEventListener("click", async (event) => {
         method: "POST",
         body: JSON.stringify(payload)
       });
-      await load();
     } catch (err) {
       alert(err.message);
+    } finally {
+      await load();
     }
     return;
   }
