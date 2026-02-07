@@ -53,7 +53,12 @@ function nodeCard(node) {
   if (node.status === "approved") {
     actions.push(
       `<button type="button" data-action="gen-config" data-id="${node.id}" data-gen-ready="${node.genConfigReady ? "true" : "false"}">Gen Config</button>`,
-      `${node.genConfigReady ? `<button type="button" data-action="apply" data-id="${node.id}">Apply Config</button>` : ""}`,
+      `${
+        node.genConfigReady
+          ? `<button type="button" data-action="apply" data-id="${node.id}">Apply Config</button>
+             <button type="button" class="ghost" data-action="show-apply-cmd" data-id="${node.id}">Show Apply Command</button>`
+          : ""
+      }`,
       `<button type="button" class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
   }
@@ -329,6 +334,13 @@ document.addEventListener("click", async (event) => {
     } catch (err) {
       alert(err.message);
     }
+    return;
+  }
+  if (action === "show-apply-cmd") {
+    const node = nodeCache.get(id);
+    if (!node) return;
+    const cmd = `talosctl --insecure -e ${node.ip} -n ${node.ip} apply-config -f <PATCHED_CONFIG_PATH>`;
+    alert(`Apply Config command:\n\n${cmd}`);
     return;
   }
   try {
