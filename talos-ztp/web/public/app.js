@@ -52,7 +52,7 @@ function nodeCard(node) {
   }
   if (node.status === "approved") {
     actions.push(
-      `<button type="button" data-action="gen-config" data-id="${node.id}" ${node.genConfigReady ? "disabled" : ""}>Gen Config</button>`,
+      `<button type="button" data-action="gen-config" data-id="${node.id}" data-gen-ready="${node.genConfigReady ? "true" : "false"}">Gen Config</button>`,
       `${node.genConfigReady ? `<button type="button" data-action="apply" data-id="${node.id}">Apply Config</button>` : ""}`,
       `<button type="button" class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
@@ -271,7 +271,10 @@ document.addEventListener("click", async (event) => {
     return;
   }
   if (action === "gen-config") {
-    alert("Gen Config started");
+    if (button.dataset.genReady === "true") {
+      alert("Gen Config already completed for this node.");
+      return;
+    }
     const clusterName =
       document.querySelector(`input[data-field="clusterName"][data-id="${id}"]`)?.value?.trim() || "";
     const clusterIp =
