@@ -103,8 +103,8 @@ function nodeCard(node) {
           : ""
       }
       ${
-        node.status === "approved" && node.genConfigReady
-          ? `<div class="row"><small class="muted">Apply command: talosctl -i -e ${node.ip} -n ${node.ip} apply-config -f &lt;PATCHED_CONFIG_PATH&gt;</small></div>`
+        node.lastApplyCommand
+          ? `<div class="row"><small class="muted">Apply command: ${escapeHtml(node.lastApplyCommand)}</small></div>`
           : ""
       }
       ${

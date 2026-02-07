@@ -570,9 +570,11 @@ const server = http.createServer(async (req, res) => {
       node.patchMachineYaml = body.patchMachineYaml || "";
       node.patchControlplaneYaml = body.patchControlplaneYaml || "";
       node.talosconfigYaml = body.talosconfigYaml || node.talosconfigYaml || "";
+      const applyCmd = `talosctl -i -e ${node.ip} -n ${node.ip} apply-config -f <PATCHED_CONFIG_PATH>`;
       await applyConfigForNode(node);
       node.status = "configured";
       node.lastAppliedAt = nowIso();
+      node.lastApplyCommand = applyCmd;
       node.updatedAt = nowIso();
       await saveDb(db);
       return json(res, 200, node);
