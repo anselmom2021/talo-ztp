@@ -280,9 +280,9 @@ async function applyConfigForNode(node) {
       talosctlArgsForNode(
         node,
         ["apply-config", ...nodeArgs(node.ip), "-f", patchedConfigPath],
-        { forceInsecure: !useTalosconfig }
+        { forceInsecure: true }
       ),
-      envOverride
+      { TALOSCONFIG: null, TALOSCONFIG_FILE: null }
     );
   } finally {
     await rm(tempDir, { recursive: true, force: true });
