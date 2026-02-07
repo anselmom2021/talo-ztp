@@ -360,7 +360,10 @@ const server = http.createServer(async (req, res) => {
     const [, nodeId] = nodeTalosconfigMatch;
     const db = await loadDb();
     const node = db.nodes.find((n) => n.id === nodeId);
-    if (!node || !node.talosconfigYaml) return notFound(res);
+    if (!node) return notFound(res);
+    if (!node.talosconfigYaml) {
+      return badRequest(res, "talosconfig not available");
+    }
     res.writeHead(200, {
       "Content-Type": "application/octet-stream",
       "Content-Disposition": `attachment; filename="talosconfig-${nodeId}"`

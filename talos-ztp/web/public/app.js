@@ -272,7 +272,28 @@ document.addEventListener("click", async (event) => {
   }
   if (action === "gen-config") {
     if (button.dataset.genReady === "true") {
-      alert("Gen Config already completed for this node.");
+      const node = nodeCache.get(id);
+      if (!node?.talosconfigYaml) {
+        try {
+          await fetchJson(`/api/nodes/${id}/gen-config`, {
+            method: "POST",
+            body: JSON.stringify({
+              clusterName:
+                document.querySelector(`input[data-field="clusterName"][data-id="${id}"]`)?.value?.trim() ||
+                "",
+              clusterIp:
+                document.querySelector(`input[data-field="clusterIp"][data-id="${id}"]`)?.value?.trim() || ""
+            })
+          });
+          await load();
+          setDetails(nodeCache.get(id));
+          alert("Gen Config completed. Click Details, then Download talosconfig.");
+        } catch (err) {
+          alert(err.message);
+        }
+      } else {
+        alert("Gen Config already completed for this node.");
+      }
       return;
     }
     const clusterName =
