@@ -571,14 +571,19 @@ const server = http.createServer(async (req, res) => {
       node.patchControlplaneYaml = body.patchControlplaneYaml || "";
       node.talosconfigYaml = body.talosconfigYaml || node.talosconfigYaml || "";
       const applyCmd = `talosctl --insecure -e ${node.ip} -n ${node.ip} apply-config -f <PATCHED_CONFIG_PATH>`;
+      node.lastApplyCommand = applyCmd;
+      node.updatedAt = nowIso();
+      await saveDb(db);
       await applyConfigForNode(node);
       node.status = "configured";
       node.lastAppliedAt = nowIso();
-      node.lastApplyCommand = applyCmd;
       node.updatedAt = nowIso();
       await saveDb(db);
       return json(res, 200, node);
     } catch (err) {
+      node.lastApplyError = err.message;
+      node.updatedAt = nowIso();
+      await saveDb(db);
       return badRequest(res, `apply failed: ${err.message}`);
     }
   }
