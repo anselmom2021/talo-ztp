@@ -339,7 +339,7 @@ document.addEventListener("click", async (event) => {
   if (action === "show-apply-cmd") {
     const node = nodeCache.get(id);
     if (!node) return;
-    const cmd = `talosctl --insecure -e ${node.ip} -n ${node.ip} apply-config -f <PATCHED_CONFIG_PATH>`;
+    const cmd = `talosctl -i -e ${node.ip} -n ${node.ip} apply-config -f <PATCHED_CONFIG_PATH>`;
     alert(`Apply Config command:\n\n${cmd}`);
     return;
   }
