@@ -332,10 +332,13 @@ const server = http.createServer(async (req, res) => {
           "--with-docs=false"
         ]);
         const roleFile = path.join(tempDir, `${node.role}.yaml`);
+        const talosconfigFile = path.join(tempDir, "talosconfig");
         const cfg = await readFile(roleFile, "utf8");
+        const talosconfigYaml = await readFile(talosconfigFile, "utf8");
         node.clusterName = clusterName;
         node.clusterIp = clusterIp;
         node.baseConfigYaml = cfg;
+        node.talosconfigYaml = talosconfigYaml;
         node.generatedConfigAt = nowIso();
         node.genConfigReady = true;
         node.updatedAt = nowIso();

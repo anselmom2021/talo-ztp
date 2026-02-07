@@ -280,6 +280,7 @@ document.addEventListener("click", async (event) => {
         method: "POST",
         body: JSON.stringify(payload)
       });
+      await downloadTalosconfig(id);
       await load();
     } catch (err) {
       alert(err.message);
