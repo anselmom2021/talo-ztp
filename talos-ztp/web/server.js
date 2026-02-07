@@ -145,7 +145,7 @@ async function supportsInsecureFlag() {
   if (insecureFlagSupport !== null) return insecureFlagSupport;
   try {
     const out = await runCommand("talosctl", ["apply-config", "--help"]);
-    insecureFlagSupport = out.includes("--insecure") || out.includes("-i, --insecure") || out.includes("-i");
+    insecureFlagSupport = out.includes("--insecure");
   } catch {
     insecureFlagSupport = false;
   }
@@ -155,7 +155,7 @@ async function supportsInsecureFlag() {
 async function talosctlArgs(baseArgs) {
   const args = [];
   if (shouldUseInsecure() && (await supportsInsecureFlag())) {
-    args.push("-i");
+    args.push("--insecure");
   }
   return args.concat(baseArgs);
 }
@@ -165,7 +165,7 @@ async function talosctlArgsForNode(node, baseArgs, options = {}) {
   const forceInsecure = options.forceInsecure === true;
   const hasNodeTalosconfig = Boolean(node && node.talosconfigYaml && node.talosconfigYaml.trim());
   if ((forceInsecure || (!hasNodeTalosconfig && shouldUseInsecure())) && (await supportsInsecureFlag())) {
-    args.push("-i");
+    args.push("--insecure");
   }
   return args.concat(baseArgs);
 }
@@ -570,7 +570,7 @@ const server = http.createServer(async (req, res) => {
       node.patchMachineYaml = body.patchMachineYaml || "";
       node.patchControlplaneYaml = body.patchControlplaneYaml || "";
       node.talosconfigYaml = body.talosconfigYaml || node.talosconfigYaml || "";
-      const applyCmd = `talosctl -i -e ${node.ip} -n ${node.ip} apply-config -f <PATCHED_CONFIG_PATH>`;
+      const applyCmd = `talosctl --insecure -e ${node.ip} -n ${node.ip} apply-config -f <PATCHED_CONFIG_PATH>`;
       await applyConfigForNode(node);
       node.status = "configured";
       node.lastAppliedAt = nowIso();
