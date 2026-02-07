@@ -145,7 +145,7 @@ async function supportsInsecureFlag() {
   if (insecureFlagSupport !== null) return insecureFlagSupport;
   try {
     const out = await runCommand("talosctl", ["apply-config", "--help"]);
-    insecureFlagSupport = out.includes("--insecure");
+    insecureFlagSupport = out.includes("--insecure") || out.includes("-i, --insecure") || out.includes("-i");
   } catch {
     insecureFlagSupport = false;
   }
@@ -155,7 +155,7 @@ async function supportsInsecureFlag() {
 async function talosctlArgs(baseArgs) {
   const args = [];
   if (shouldUseInsecure() && (await supportsInsecureFlag())) {
-    args.push("--insecure");
+    args.push("-i");
   }
   return args.concat(baseArgs);
 }
@@ -165,7 +165,7 @@ async function talosctlArgsForNode(node, baseArgs, options = {}) {
   const forceInsecure = options.forceInsecure === true;
   const hasNodeTalosconfig = Boolean(node && node.talosconfigYaml && node.talosconfigYaml.trim());
   if ((forceInsecure || (!hasNodeTalosconfig && shouldUseInsecure())) && (await supportsInsecureFlag())) {
-    args.push("--insecure");
+    args.push("-i");
   }
   return args.concat(baseArgs);
 }
