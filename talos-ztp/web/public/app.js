@@ -45,28 +45,28 @@ function nodeCard(node) {
   const actions = [];
   if (node.status === "pending") {
     actions.push(
-      `<button data-action="approve" data-id="${node.id}">Approve</button>`,
-      `<button class="ghost" data-action="reject" data-id="${node.id}">Reject</button>`,
-      `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
+      `<button type="button" data-action="approve" data-id="${node.id}">Approve</button>`,
+      `<button type="button" class="ghost" data-action="reject" data-id="${node.id}">Reject</button>`,
+      `<button type="button" class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
   }
   if (node.status === "approved") {
     actions.push(
-      `<button data-action="gen-config" data-id="${node.id}" ${node.genConfigReady ? "disabled" : ""}>Gen Config</button>`,
-      `${node.genConfigReady ? `<button data-action="apply" data-id="${node.id}">Apply Config</button>` : ""}`,
-      `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
+      `<button type="button" data-action="gen-config" data-id="${node.id}" ${node.genConfigReady ? "disabled" : ""}>Gen Config</button>`,
+      `${node.genConfigReady ? `<button type="button" data-action="apply" data-id="${node.id}">Apply Config</button>` : ""}`,
+      `<button type="button" class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
   }
   if (node.status === "installing") {
     actions.push(
-      `<button data-action="complete" data-id="${node.id}">Mark Installed</button>`,
-      `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
+      `<button type="button" data-action="complete" data-id="${node.id}">Mark Installed</button>`,
+      `<button type="button" class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
   }
   if (node.status === "configured") {
     actions.push(
-      `<button data-action="verify" data-id="${node.id}">Verify Applied</button>`,
-      `<button class="ghost" data-action="details" data-id="${node.id}">Details</button>`
+      `<button type="button" data-action="verify" data-id="${node.id}">Verify Applied</button>`,
+      `<button type="button" class="ghost" data-action="details" data-id="${node.id}">Details</button>`
     );
   }
 
@@ -271,6 +271,7 @@ document.addEventListener("click", async (event) => {
     return;
   }
   if (action === "gen-config") {
+    alert("Gen Config started");
     const clusterName =
       document.querySelector(`input[data-field="clusterName"][data-id="${id}"]`)?.value?.trim() || "";
     const clusterIp =
