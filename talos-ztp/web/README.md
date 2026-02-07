@@ -32,7 +32,7 @@ Delete this file to reset the app.
 - `PORT` env var (default `4173`)
 - Discovery requires `nmap` and `talosctl` installed on the machine running the web server.
 - `CONFIG_DIR` points to the base Talos configs (default `../talos/generated`)
-- `TALOS_INSECURE=true` to force `--insecure` on all talosctl commands (needed for maintenance mode)
+- Apply/Verify always use `--insecure` to avoid TLS errors on fresh nodes.
 
 Example:
 ```bash

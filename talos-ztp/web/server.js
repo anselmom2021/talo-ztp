@@ -273,7 +273,7 @@ async function applyConfigForNode(node) {
       "talosctl",
       talosctlArgsForNode(
         node,
-        ["apply-config", ...nodeArgs(node.ip), "-f", patchedConfigPath],
+        ["apply-config", ...nodeArgs(node.ip), "--insecure", "-f", patchedConfigPath],
         ""
       ),
       node.talosconfigYaml
@@ -580,7 +580,7 @@ const server = http.createServer(async (req, res) => {
         "talosctl",
         talosctlArgsForNode(
           node,
-          [...nodeArgs(node.ip), "get", "machineconfig"],
+          [...nodeArgs(node.ip), "get", "machineconfig", "--insecure"],
           ""
         ),
         node.talosconfigYaml
