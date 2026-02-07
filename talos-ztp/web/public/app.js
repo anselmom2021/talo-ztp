@@ -308,18 +308,17 @@ document.addEventListener("click", async (event) => {
 const nodeCache = new Map();
 
 function setDetails(node) {
+  const panel = document.getElementById("details-panel");
+  if (panel) {
+    panel.dataset.nodeId = node?.id || "";
+  }
   document.getElementById("detail-node-name").textContent = node?.name || "-";
   document.getElementById("detail-cluster-name").textContent = node?.clusterName || "-";
   document.getElementById("detail-node-ip").textContent = node?.ip || "-";
   document.getElementById("detail-cluster-ip").textContent = node?.clusterIp || "-";
   const downloadBtn = document.getElementById("details-download");
-  if (node?.talosconfigYaml) {
-    downloadBtn.disabled = false;
-    downloadBtn.onclick = () => downloadTalosconfig(node.id);
-  } else {
-    downloadBtn.disabled = true;
-    downloadBtn.onclick = null;
-  }
+  downloadBtn.disabled = !node;
+  downloadBtn.onclick = node ? () => downloadTalosconfig(node.id) : null;
 }
 
 async function downloadTalosconfig(nodeId) {
