@@ -224,7 +224,18 @@ pre {
   display: grid;
   gap: 10px;
   margin: 10px 0 6px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
+}
+
+.apply-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+@media (min-width: 900px) {
+  .apply-grid {
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+  }
 }
 
 .ghost {
