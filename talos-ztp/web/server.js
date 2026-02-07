@@ -570,7 +570,7 @@ const server = http.createServer(async (req, res) => {
       node.patchMachineYaml = body.patchMachineYaml || "";
       node.patchControlplaneYaml = body.patchControlplaneYaml || "";
       node.talosconfigYaml = body.talosconfigYaml || node.talosconfigYaml || "";
-      const applyCmd = `talosctl --insecure -e ${node.ip} -n ${node.ip} apply-config -f <PATCHED_CONFIG_PATH>`;
+      const applyCmd = `talosctl -e ${node.ip} -n ${node.ip} --talosconfig <TALOSCONFIG_PATH> apply-config -f controlplane.yaml -p patch-machine.yaml -p patch-controlplane.yaml --insecure`;
       node.lastApplyCommand = applyCmd;
       node.updatedAt = nowIso();
       await saveDb(db);
