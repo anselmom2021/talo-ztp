@@ -271,10 +271,15 @@ document.addEventListener("click", async (event) => {
     return;
   }
   if (action === "gen-config") {
-    const payload = {
-      clusterName: document.querySelector(`input[data-field="clusterName"][data-id="${id}"]`)?.value?.trim() || "",
-      clusterIp: document.querySelector(`input[data-field="clusterIp"][data-id="${id}"]`)?.value?.trim() || ""
-    };
+    const clusterName =
+      document.querySelector(`input[data-field="clusterName"][data-id="${id}"]`)?.value?.trim() || "";
+    const clusterIp =
+      document.querySelector(`input[data-field="clusterIp"][data-id="${id}"]`)?.value?.trim() || "";
+    if (!clusterName || !clusterIp) {
+      alert("Cluster Name and Cluster IP are required before Gen Config.");
+      return;
+    }
+    const payload = { clusterName, clusterIp };
     try {
       await fetchJson(`/api/nodes/${id}/gen-config`, {
         method: "POST",
