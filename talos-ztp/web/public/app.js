@@ -331,8 +331,12 @@ document.addEventListener("click", async (event) => {
     }
     return;
   }
-  await fetchJson(`/api/nodes/${id}/${action}`, { method: "POST" });
-  await load();
+  try {
+    await fetchJson(`/api/nodes/${id}/${action}`, { method: "POST" });
+    await load();
+  } catch (err) {
+    alert(err.message);
+  }
 });
 
 const nodeCache = new Map();
