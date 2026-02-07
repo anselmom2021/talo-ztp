@@ -282,7 +282,7 @@ document.addEventListener("click", async (event) => {
       });
       await load();
       setDetails(nodeCache.get(id));
-      alert("Gen Config completed. Use the Download talosconfig button in Details.");
+      alert("Gen Config completed. Click Details, then Download talosconfig.");
     } catch (err) {
       alert(err.message);
     }

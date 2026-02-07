@@ -333,6 +333,9 @@ const server = http.createServer(async (req, res) => {
         ]);
         const roleFile = path.join(tempDir, `${node.role}.yaml`);
         const talosconfigFile = path.join(tempDir, "talosconfig");
+        if (!existsSync(talosconfigFile)) {
+          return badRequest(res, "talosconfig was not generated");
+        }
         const cfg = await readFile(roleFile, "utf8");
         const talosconfigYaml = await readFile(talosconfigFile, "utf8");
         node.clusterName = clusterName;
